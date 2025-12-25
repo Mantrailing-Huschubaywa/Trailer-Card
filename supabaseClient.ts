@@ -1,14 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase URL or Anon Key is missing. Please check your environment variables.");
-  // Fallback to dummy values to prevent crash, but operations will fail.
-  // In a real app, you might want to throw an error or handle this more gracefully.
-  // For development, ensure these are loaded (e.g., via a bundler's env config).
-  // For Playcode, these would be directly available from the runtime environment.
+  throw new Error(
+    'Supabase URL or Anon Key is missing. Please check your environment variables.'
+  );
 }
 
-export const supabase = createClient(supabaseUrl || 'https://dummy.supabase.co', supabaseAnonKey || 'dummy_key');
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
