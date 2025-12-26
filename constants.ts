@@ -1,17 +1,12 @@
-import { TrainingLevelEnum, NavigationItem, User } from './types';
+
+import { Customer, Transaction, TrainingLevelEnum, TrainingSection, NavigationItem } from './types';
 import { HomeIcon, UsersIcon, ClipboardIcon, SettingsIcon, DollarSignIcon, RepeatIcon } from './components/Icons';
 
-// Training level definitions including required hours and logical ID
-export const TRAINING_LEVEL_DEFINITIONS = [
-  { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6 },
-  { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12 },
-  { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12 },
-  { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12 },
-  { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100 }, // Expert has 100, but can go beyond
-];
+// Mock Customers are now managed in App.tsx state.
 
-// ADMIN_STAFF_USER_DETAILS werden entfernt, da Namen/Initialen nun aus der E-Mail abgeleitet werden.
-// Dies ist in App.tsx und pages/UserManagement.tsx implementiert.
+// Mock Transactions are now managed in App.tsx state.
+
+export const CURRENT_EMPLOYEE = "Christian Christian";
 
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   { path: '/', label: 'Übersicht', icon: HomeIcon },
@@ -23,6 +18,8 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
 export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export const MOCK_REPORT_TYPES = ['Monatlich', 'Jährlich', 'Benutzerdefiniert'];
+export const MOCK_REPORT_PERIODS = ['Dezember 2025', 'November 2025', 'Gesamt']; // Note: 'Dezember 2025' aligns with REFERENCE_DATE's month
+export const MOCK_REPORT_EMPLOYEES = ['Alle Mitarbeiter', 'Christian Christian', 'Sandra Sandra', 'Sophie Sophie'];
 export const MOCK_TRANSACTION_FILTERS = ['Alle Transaktionen', 'Einnahmen (Aufladungen)', 'Ausgaben (Abbuchungen)'];
 
 // Define a fixed reference date for consistent calculations across the app

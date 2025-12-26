@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -5,25 +6,25 @@ import Avatar from '../components/Avatar';
 import UserFormModal from '../components/UserFormModal';
 import UserDeleteConfirmationModal from '../components/UserDeleteConfirmationModal';
 import { EditIcon, TrashIcon, UserPlusIcon, ChevronDownIcon } from '../components/Icons';
-import { User, UserRoleEnum } from '../types';
+import { User, UserTableData, UserRoleEnum } from '../types';
+import { REFERENCE_DATE } from '../constants';
 
 interface UserManagementProps {
-  users: User[]; // Alle Benutzer, einschließlich Admin, Mitarbeiter und Kunden aus App.tsx-Status
-  onAddUser: (newUser: { firstName: string; lastName: string; email: string; role: UserRoleEnum; password?: string }) => Promise<void>;
-  onUpdateUser: (updatedUser: User) => Promise<void>;
-  onDeleteUser: (userId: string) => Promise<void>;
-  currentUser: User | null; // Aktuell eingeloggter Benutzer zur Überprüfung von Berechtigungen
+  users: User[];
+  onAddUser: (newUser: User) => void;
+  onUpdateUser: (updatedUser: User) => void;
+  onDeleteUser: (userId: string) => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
   const [showUserFormModal, setShowUserFormModal] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
   const [userToDeleteId, setUserToDeleteId] = useState<string | null>(null);
 
-  // Status zur Verwaltung erweiterter/reduzierter Abschnitte für jede Rolle
+  // State to manage expanded/collapsed sections for each role
   const [expandedRoles, setExpandedRoles] = useState<Record<UserRoleEnum, boolean>>({
-    [UserRoleEnum.ADMIN]: true, // Admins standardmäßig erweitert
+    [UserRoleEnum.ADMIN]: true, // Admins expanded by default
     [UserRoleEnum.MITARBEITER]: false,
     [UserRoleEnum.KUNDE]: false,
   });
@@ -50,38 +51,45 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     setUserToEdit(null);
   };
 
-  const handleSubmitUserForm = async (userData: { firstName: string; lastName: string; email: string; role: UserRoleEnum; password?: string }) => {
-    if (!currentUser) return; // Sollte nicht passieren, wenn diese Komponente gerendert wird
+  const handleSubmitUserForm = (userData: { firstName: string; lastName: string; email: string; role: UserRoleEnum; password?: string }) => {
+    if (userToEdit) {
+      const updatedUser: User = {
+        ...userToEdit,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        role: userData.role,
+        ...(userData.password ? { password: userData.password } : {}),
+      };
+      onUpdateUser(updatedUser);
+    } else {
+      const newUserId = `user-${users.length + 1}-${Date.now()}`;
+      const initials = `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}`.toUpperCase().slice(0, 2);
+      const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
+      const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
 
-    try {
-      if (userToEdit) {
-        // Bestehenden Benutzer bearbeiten
-        const updatedUser: User = {
-          ...userToEdit,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email: userData.email,
-          role: userData.role,
-        };
-        await onUpdateUser(updatedUser);
-      } else {
-        // Neuen Benutzer erstellen (nur für Kunden von dieser UI, andere Rollen sind Admin-only in Supabase)
-        // Admin/Mitarbeiter-Erstellung erfolgt über den Invite-Flow in App.tsx
-        if (userData.role !== UserRoleEnum.KUNDE) {
-          alert('Erstellung von Admin/Mitarbeiter-Benutzern muss über den "Benutzer einladen"-Flow erfolgen.');
-          return;
-        }
+      let newUser: User = {
+        id: newUserId,
+        avatarInitials: initials,
+        avatarColor: randomColor,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        role: userData.role,
+        password: userData.password,
+        createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
+      };
 
-        // Für neue Kunden-Benutzer erstellen wir ein Kundenprofil.
-        // Der Benutzer muss sich danach über die Login-Seite registrieren,
-        // um das Profil mit einem Auth-Benutzer zu verknüpfen.
-        await onAddUser(userData);
+      // If the new user is a 'Kunde', generate and associate a customer ID here
+      if (userData.role === UserRoleEnum.KUNDE) {
+        // We use the new user's ID to generate a customer ID, ensuring a link
+        const associatedCustomerId = `cust-${newUserId}`; 
+        newUser = { ...newUser, associatedCustomerId: associatedCustomerId };
       }
-      handleCloseUserFormModal();
-    } catch (error: any) {
-      console.error('Fehler beim Übermitteln des Benutzerformulars:', error.message);
-      alert(`Fehler beim Speichern des Benutzers: ${error.message}`);
+      
+      onAddUser(newUser);
     }
+    handleCloseUserFormModal();
   };
 
   const handleOpenDeleteConfirmation = (userId: string) => {
@@ -89,15 +97,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     setShowDeleteConfirmationModal(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (userToDeleteId) {
-      try {
-        await onDeleteUser(userToDeleteId);
-        alert('Benutzer erfolgreich gelöscht.');
-      } catch (error: any) {
-        console.error('Fehler während der Löschbestätigung:', error.message);
-        alert(`Fehler beim Löschen des Benutzers: ${error.message}`);
-      }
+      onDeleteUser(userToDeleteId);
     }
     setShowDeleteConfirmationModal(false);
     setUserToDeleteId(null);
@@ -121,12 +123,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     }
   };
 
-  // Benutzer nach Rolle filtern
+  // Filter users by role
   const adminUsers = users.filter(user => user.role === UserRoleEnum.ADMIN);
   const mitarbeiterUsers = users.filter(user => user.role === UserRoleEnum.MITARBEITER);
   const kundeUsers = users.filter(user => user.role === UserRoleEnum.KUNDE);
 
-
+  // Reusable component for displaying a list of users for a specific role
   interface UserRoleSectionProps {
     title: string;
     role: UserRoleEnum;
@@ -135,7 +137,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     onToggle: (role: UserRoleEnum) => void;
     onOpenEditUserModal: (user: User) => void;
     onOpenDeleteConfirmation: (userId: string) => void;
-    currentLoggedInUser: User | null; // Um zu überprüfen, ob der Benutzer sich selbst bearbeitet/löscht
   }
 
   const UserRoleSection: React.FC<UserRoleSectionProps> = ({
@@ -146,8 +147,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     onToggle,
     onOpenEditUserModal,
     onOpenDeleteConfirmation,
-    currentLoggedInUser,
   }) => {
+    const displayUsers = users.slice(0, 5); // Show first 5 users
+    const hasMoreUsers = users.length > 5;
+
     return (
       <Card padding="none" className="overflow-hidden">
         <button
@@ -166,7 +169,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
         </button>
 
         {isExpanded && (
-          <div id={`user-list-${role}`} className={`p-4 border-t border-gray-200 ${users.length > 5 ? 'max-h-96 overflow-y-auto custom-scrollbar' : ''}`}>
+          <div id={`user-list-${role}`} className={`p-4 border-t border-gray-200 ${hasMoreUsers ? 'max-h-96 overflow-y-auto custom-scrollbar' : ''}`}>
             {users.length === 0 ? (
               <p className="text-gray-500 text-sm py-4 text-center">Keine Benutzer in dieser Rolle gefunden.</p>
             ) : (
@@ -185,7 +188,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                         onClick={(e) => { e.stopPropagation(); onOpenEditUserModal(user); }}
                         className="text-gray-500 hover:text-blue-600"
                         aria-label={`Benutzer ${user.firstName} ${user.lastName} bearbeiten`}
-                        disabled={user.id === currentLoggedInUser?.id || (currentUser?.role !== UserRoleEnum.ADMIN && user.role === UserRoleEnum.ADMIN)} // Kann sich selbst nicht bearbeiten, nur Admin darf andere Admins bearbeiten
                       >
                         <EditIcon className="h-5 w-5" />
                       </button>
@@ -193,7 +195,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                         onClick={(e) => { e.stopPropagation(); onOpenDeleteConfirmation(user.id); }}
                         className="text-gray-500 hover:text-red-600"
                         aria-label={`Benutzer ${user.firstName} ${user.lastName} löschen`}
-                        disabled={user.id === currentLoggedInUser?.id || (currentUser?.role !== UserRoleEnum.ADMIN && user.role === UserRoleEnum.ADMIN)} // Kann sich selbst nicht löschen, nur Admin darf andere Admins löschen
                       >
                         <TrashIcon className="h-5 w-5" />
                       </button>
@@ -218,11 +219,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           <h1 className="text-3xl font-bold text-gray-900">Benutzerverwaltung</h1>
           <p className="text-gray-600">Verwalten Sie alle Systembenutzer an einem Ort</p>
         </div>
-        {currentUser?.role === UserRoleEnum.ADMIN && (
-          <Button variant="success" icon={UserPlusIcon} onClick={handleOpenAddUserModal}>
-            Benutzer einladen
-          </Button>
-        )}
+        <Button variant="success" icon={UserPlusIcon} onClick={handleOpenAddUserModal}>
+          Neuer Benutzer
+        </Button>
       </div>
 
       <div className="mt-8 space-y-6">
@@ -234,7 +233,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           onToggle={toggleRoleSection}
           onOpenEditUserModal={handleOpenEditUserModal}
           onOpenDeleteConfirmation={handleOpenDeleteConfirmation}
-          currentLoggedInUser={currentUser}
         />
         <UserRoleSection
           title="Mitarbeiter"
@@ -244,7 +242,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           onToggle={toggleRoleSection}
           onOpenEditUserModal={handleOpenEditUserModal}
           onOpenDeleteConfirmation={handleOpenDeleteConfirmation}
-          currentLoggedInUser={currentUser}
         />
         <UserRoleSection
           title="Kunden"
@@ -254,7 +251,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           onToggle={toggleRoleSection}
           onOpenEditUserModal={handleOpenEditUserModal}
           onOpenDeleteConfirmation={handleOpenDeleteConfirmation}
-          currentLoggedInUser={currentUser}
         />
       </div>
 
@@ -264,7 +260,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
         onClose={handleCloseUserFormModal}
         onSubmit={handleSubmitUserForm}
         userToEdit={userToEdit}
-        currentUserRole={currentUser?.role || UserRoleEnum.KUNDE} // Aktuelle Benutzerrolle übergeben
       />
 
       <UserDeleteConfirmationModal

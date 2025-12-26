@@ -1,22 +1,20 @@
+
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { supabase } from '../supabaseClient';
-import { UserRoleEnum } from '../types';
 
 interface LoginPageProps {
-  onLogin: (email: string, password: string) => Promise<boolean>; // Updated to return Promise
-  onRegister: (email: string, password: string) => Promise<boolean>; // New prop for registration
+  onLogin: (email: string, password: string) => boolean;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+  // Pre-fill with admin credentials for quick access
+  const [email, setEmail] = useState('admin@pfotencard.de');
+  const [password, setPassword] = useState('adminpassword');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false); // State to toggle between login/register
 
   const validateForm = () => {
     let isValid = true;
@@ -35,36 +33,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
     if (!password.trim()) {
       setPasswordError('Passwort ist erforderlich.');
       isValid = false;
-    } else if (password.length < 6) {
-      setPasswordError('Passwort muss mindestens 6 Zeichen lang sein.');
-      isValid = false;
     }
 
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      setLoginError(''); // Clear previous errors
-      try {
-        if (isRegistering) {
-          const success = await onRegister(email, password);
-          if (success) {
-            alert('Registrierung erfolgreich! Sie sind jetzt angemeldet.');
-            // onRegister already handles auto-login and redirection
-          } else {
-            setLoginError('Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.');
-          }
-        } else {
-          const success = await onLogin(email, password);
-          if (!success) {
-            setLoginError('Ungültige E-Mail oder ungültiges Passwort.');
-          }
-        }
-      } catch (error: any) {
-        console.error('Auth error:', error.message);
-        setLoginError(`Ein Fehler ist aufgetreten: ${error.message || 'Bitte versuchen Sie es erneut.'}`);
+      const success = onLogin(email, password);
+      if (!success) {
+        setLoginError('Ungültige E-Mail oder ungültiges Passwort.');
       }
     }
   };
@@ -73,11 +52,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-100 p-4">
       <Card className="max-w-md w-full p-8">
         <h1 className="text-3xl font-bold text-gray-900 text-center mb-6">Mantrailing Card</h1>
-        <p className="text-gray-600 text-center mb-8">{isRegistering ? 'Registrieren Sie sich, um fortzufahren' : 'Melden Sie sich an, um fortzufahren'}</p>
+        <p className="text-gray-600 text-center mb-8">Melden Sie sich an, um fortzufahren</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
-            id="authEmail"
+            id="loginEmail"
             label="E-Mail"
             type="email"
             value={email}
@@ -86,7 +65,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
             error={emailError}
           />
           <Input
-            id="authPassword"
+            id="loginPassword"
             label="Passwort"
             type="password"
             value={password}
@@ -102,35 +81,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
           )}
 
           <Button type="submit" variant="primary" className="w-full">
-            {isRegistering ? 'Registrieren' : 'Anmelden'}
+            Anmelden
           </Button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          {isRegistering ? (
-            <>
-              Sie haben bereits ein Konto?{' '}
-              <button
-                type="button"
-                className="text-blue-600 hover:text-blue-800 font-medium"
-                onClick={() => setIsRegistering(false)}
-              >
-                Jetzt anmelden
-              </button>
-            </>
-          ) : (
-            <>
-              Sie haben noch kein Konto?{' '}
-              <button
-                type="button"
-                className="text-blue-600 hover:text-blue-800 font-medium"
-                onClick={() => setIsRegistering(true)}
-              >
-                Jetzt registrieren
-              </button>
-            </>
-          )}
-        </div>
       </Card>
     </div>
   );

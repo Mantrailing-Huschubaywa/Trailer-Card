@@ -1,72 +1,35 @@
+
 import React from 'react';
 
 
-export interface DbCustomerProfile {
-  id: string; // PK
-  auth_user_id: string | null; // FK to auth.users.id
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  dog_name: string | null;
-  chip_number: string | null;
-  qr_code_data: string | null;
-  // Assuming a created_at field is present or handled by Supabase default.
-  // If not, this can be derived from auth.users.created_at or omitted.
-  created_at?: string;
-}
-
-export interface DbProfile {
-  user_id: string; // PK, FK to auth.users.id
-  role: UserRoleEnum;
-}
-
-export interface DbTransaction {
-  id: string; // PK
-  customer_profile_id: string; // FK to customer_profiles.id
-  created_by_user_id: string | null; // FK to auth.users.id
-  type: 'recharge' | 'debit';
-  description: string | null;
-  amount: number;
-  created_at: string;
-}
-
-export interface DbTrainingProgress {
-  id: string; // PK
-  customer_profile_id: string; // FK to customer_profiles.id
-  level_name: TrainingLevelEnum;
-  completed_trails: number;
-  status: 'Aktuell' | 'Gesperrt' | 'Abgeschlossen';
-}
-
 export interface Customer {
-  id: string; // customer_profile.id
-  authUserId: string | null; // customer_profile.auth_user_id
+  id: string;
   avatarInitials: string;
   avatarColor: string;
-  firstName: string; // customer_profile.first_name
-  lastName: string; // customer_profile.last_name
-  email: string; // from auth.users or customer_profile (if denormalized)
-  phone: string; // customer_profile.phone
-  dogName: string; // customer_profile.dog_name
-  chipNumber: string; // customer_profile.chip_number
-  balance: number; // Calculated from transactions
-  totalTransactions: number; // Calculated from transactions
-  level: TrainingLevelEnum; // Derived from trainingProgress
-  createdAt: string; // customer_profile.created_at (formatted)
-  qrCodeData: string; // customer_profile.qr_code_data
-  documents: Document[]; // Still mock/placeholder, not from DB
-  trainingProgress: TrainingSection[]; // Derived from DbTrainingProgress
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dogName: string;
+  chipNumber: string;
+  balance: number;
+  totalTransactions: number;
+  level: TrainingLevelEnum;
+  createdAt: string; // Date string (e.g., '9.2.2025')
+  createdBy: string;
+  qrCodeData: string; // URL for QR code image
+  documents: Document[];
+  trainingProgress: TrainingSection[];
 }
 
 export interface Transaction {
-  id: string; // transactions.id
-  customerId: string; // transactions.customer_profile_id
-  employeeId: string | null; // transactions.created_by_user_id
+  id: string;
+  customerId: string;
   type: 'recharge' | 'debit';
-  description: string; // transactions.description
+  description: string;
   amount: number;
-  date: string; // transactions.created_at (formatted)
-  employee: string; // Derived from employeeId and user data
+  date: string; // Date string (e.g., '22.12.2025')
+  employee: string;
 }
 
 export enum TrainingLevelEnum {
@@ -74,15 +37,14 @@ export enum TrainingLevelEnum {
   GRUNDLAGEN = 'Grundlagen',
   FORTGESCHRITTENE = 'Fortgeschrittene',
   MASTERCLASS = 'Masterclass',
-  EXPERT = 'Expert',
+  EXPERT = 'Expert', // Added Expert status
 }
 
 export interface TrainingSection {
-  id: number; // Logical order ID (1, 2, 3, etc.)
-  dbId: string; // training_progress.id (actual PK in DB)
+  id: number;
   name: TrainingLevelEnum;
   requiredHours: number;
-  completedHours: number; // training_progress.completed_trails
+  completedHours: number;
   status: 'Aktuell' | 'Gesperrt' | 'Abgeschlossen';
 }
 
@@ -129,33 +91,21 @@ export interface TransactionConfirmationData {
 }
 
 export enum UserRoleEnum {
-  ADMIN = 'admin', // Matches SQL enum
-  MITARBEITER = 'staff', // Matches SQL enum
-  KUNDE = 'customer', // Matches SQL enum
-}
-
-// Schnittstelle für die Antwort von der Backend-API für alle Benutzer
-export interface FullUserResponse {
-  id: string;
-  email: string;
-  role: UserRoleEnum; // Verwenden Sie UserRoleEnum
-  created_at: string;
-  customer_profile: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
+  ADMIN = 'Admin',
+  MITARBEITER = 'Mitarbeiter',
+  KUNDE = 'Kunde', // Added new role for customer self-service access
 }
 
 export interface User {
-  id: string; // auth.users.id
+  id: string;
   avatarInitials: string;
   avatarColor: string;
   firstName: string;
   lastName: string;
   email: string;
-  role: UserRoleEnum; // public.profiles.role
-  createdAt: string; // auth.users.created_at (formatted)
+  role: UserRoleEnum;
+  createdAt: string; // Date string (e.g., '11.12.2025')
+  password?: string; // Optional password for mock login
   associatedCustomerId?: string; // Optional: for customer role, links to their customer ID
 }
 

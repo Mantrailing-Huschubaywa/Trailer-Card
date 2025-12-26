@@ -1,20 +1,20 @@
+
 import React from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
-import { REFERENCE_DATE } from '../constants';
+import { REFERENCE_DATE } from '../constants'; // Only REFERENCE_DATE remains in constants
 import Avatar from '../components/Avatar';
 import { ArrowUpCircleIcon, ArrowDownCircleIcon, UsersIcon, DollarSignIcon, ClipboardIcon, RepeatIcon } from '../components/Icons';
 import { Link } from 'react-router-dom';
 import { parseDateString, isSameDay, isSameMonth } from '../utils';
-import { Customer, Transaction, User } from '../types';
+import { Customer, Transaction } from '../types'; // Import types
 
 interface DashboardProps {
   customers: Customer[];
   transactions: Transaction[];
-  currentUser: User | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
   // Dynamic calculations for Dashboard Stats
   const totalCustomers = customers.length;
   const totalBalance = customers.reduce((sum, customer) => sum + customer.balance, 0);
@@ -58,7 +58,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Willkommen, {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Benutzer'}!</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Willkommen, Christian Christian!</h1>
       <p className="text-gray-600 mb-8">Übersicht ihrer Trails-Wertkarten</p>
 
       {/* Stats Cards */}
@@ -78,7 +78,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
         {/* Aktuelle Kunden */}
         <Card>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Aktuelle Kunden</h2>
-          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
+          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar"> {/* Changed max-h-72 to max-h-96 */}
             {recentCustomers.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Kunden gefunden.</p>
             ) : (
@@ -101,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
         {/* Letzte Transaktionen */}
         <Card>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Letzte Transaktionen</h2>
-          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
+          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar"> {/* Changed max-h-72 to max-h-96 */}
             {latestTransactions.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Transaktionen gefunden.</p>
             ) : (
@@ -111,7 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
                 const TransactionIcon = isRecharge ? ArrowUpCircleIcon : ArrowDownCircleIcon;
                 const iconColor = isRecharge ? 'text-green-500' : 'text-red-500';
                 const amountColor = isRecharge ? 'text-green-700' : 'text-red-700';
-                const amountSign = isRecharge ? '+' : '-';
+                const amountSign = isRecharge ? '+' : '-'; // Changed to dynamically show + or -
 
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

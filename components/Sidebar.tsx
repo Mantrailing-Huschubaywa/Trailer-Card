@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { NAVIGATION_ITEMS } from '../constants';
@@ -12,36 +13,34 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => {
-  const [isOpen, setIsOpen] = useState(false); // Für mobilen Sidebar-Toggle
+  const [isOpen, setIsOpen] = useState(false); // For mobile sidebar toggle
 
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
 
-  // Navigationspunkte basierend auf der currentUser-Rolle filtern
+  // Filter navigation items based on currentUser role
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
-    if (!currentUser) return false; // Sollte nicht passieren, wenn Sidebar gerendert wird, aber gut für die Typsicherheit
+    if (!currentUser) return false; // Should not happen if sidebar is rendered, but good for type safety
 
     if (currentUser.role === UserRoleEnum.ADMIN) {
-      return true; // Admin sieht alles
+      return true; // Admin sees all
     }
     if (currentUser.role === UserRoleEnum.MITARBEITER) {
-      // Mitarbeiter sieht Übersicht und Kunden, aber NICHT Berichte und Benutzer
-      // item.path === '/reports' wird jetzt in App.tsx über <Navigate> behandelt,
-      // aber der Menüpunkt sollte hier auch ausgeblendet werden.
+      // Mitarbeiter sees Dashboard and Customers
       return item.path === '/' || item.path === '/customers';
     }
-    // Kundenrolle sollte keine Navigationspunkte in der Sidebar sehen
+    // Kunde role should not see any navigation items in the sidebar
     return false;
   });
 
   return (
     <>
-      {/* Mobiler Menü-Button */}
+      {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
         className="fixed bottom-4 left-4 z-40 p-3 bg-blue-600 text-white rounded-full shadow-lg md:hidden"
-        aria-label="Navigation umschalten"
+        aria-label="Toggle navigation"
       >
         <svg
           className="h-6 w-6"
@@ -58,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
         </svg>
       </button>
 
-      {/* Backdrop für Mobilgeräte */}
+      {/* Backdrop for mobile */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
@@ -84,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
                 `flex items-center space-x-3 p-3 rounded-lg transition-colors duration-200 group
                  ${isActive ? 'bg-blue-500 text-white shadow-md' : 'text-white hover:bg-white/10'}`
               }
-              onClick={() => setIsOpen(false)} // Sidebar bei Navigation für Mobilgeräte schließen
+              onClick={() => setIsOpen(false)} // Close sidebar on navigation for mobile
             >
               <item.icon className="h-6 w-6 text-white group-hover:text-white" />
               <span className="text-lg">{item.label}</span>
@@ -92,14 +91,14 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
           ))}
         </nav>
 
-        {/* Aktuelle Benutzerinformationen und Abmeldung */}
+        {/* Current User Info and Logout */}
         {currentUser && (
           <div className="p-4 border-t border-white/20 flex-shrink-0">
             <div className="flex items-center mb-4">
               <Avatar initials={currentUser.avatarInitials} color={currentUser.avatarColor} size="md" className="mr-3" />
               <div>
-                <p className="font-semibold text-white">{currentUser.firstName} {currentUser.lastName}</p>
-                <p className="text-sm text-gray-200">{currentUser.role === UserRoleEnum.ADMIN ? 'Admin' : currentUser.role === UserRoleEnum.MITARBEITER ? 'Mitarbeiter' : 'Kunde'}</p>
+                <p className="font-semibold text-white">{currentUser.firstName}</p>
+                <p className="text-sm text-gray-200">{currentUser.role}</p>
               </div>
             </div>
             <button

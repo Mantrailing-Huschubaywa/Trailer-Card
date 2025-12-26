@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
@@ -5,15 +6,15 @@ import Table, { Column } from '../components/Table';
 import Button from '../components/Button';
 import Avatar from '../components/Avatar';
 import { PlusIcon, ChevronRightIcon, UsersIcon, HeartIcon, ClipboardIcon, RepeatIcon, UserPlusIcon } from '../components/Icons';
-import { ALPHABET, REFERENCE_DATE } from '../constants';
-import { Customer, CustomerTableData, TrainingLevelEnum, Transaction, User, UserRoleEnum } from '../types';
+import { ALPHABET, REFERENCE_DATE } from '../constants'; // Only ALPHABET and REFERENCE_DATE remain in constants
+import { Customer, CustomerTableData, TrainingLevelEnum, Transaction, User, UserRoleEnum } from '../types'; // Import types
 import { useNavigate } from 'react-router-dom';
 import { parseDateString, isSameMonth } from '../utils';
 
 interface CustomerManagementProps {
   customers: Customer[];
   transactions: Transaction[];
-  currentUser: User | null; // Added currentUser prop
+  currentUser: User; // Added currentUser prop
 }
 
 // Helper function to get color classes based on training level for the badge
@@ -142,7 +143,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
     navigate(`/customers/${customerData.id}`);
   };
 
-  const canCreateCustomer = currentUser?.role === UserRoleEnum.ADMIN || currentUser?.role === UserRoleEnum.MITARBEITER;
+  const canCreateCustomer = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
@@ -152,7 +153,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
           <p className="text-gray-600">Verwalten Sie alle Ihre Kunden an einem Ort</p>
         </div>
         {canCreateCustomer && (
-          <Button variant="success" icon={UserPlusIcon} disabled> {/* Disabled for now, as creation is through UserManagement or registration */}
+          <Button variant="success" icon={UserPlusIcon}>
             Neuer Kunde
           </Button>
         )}
@@ -166,6 +167,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
           icon={UsersIcon}
           color="bg-green-100 text-green-700"
         />
+        {/* Corrected variable name from 'activeCustomersInPeriodCount' to 'activeCustomersCount' */}
         <StatCard
           title="Aktiv"
           value={activeCustomersCount} // Dynamically calculated

@@ -6,8 +6,7 @@ import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import TransactionConfirmationModal from '../components/TransactionConfirmationModal';
-import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal';
-import TransactionDetailsInputModal from '../components/TransactionDetailsInputModal';
+import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal'; // Import new modal
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -17,14 +16,10 @@ import {
   AwardIcon,
   UploadIcon,
   UserIcon,
-  ChevronDownIcon,
-  EditIcon,
+  ChevronDownIcon, // Import ChevronDownIcon
 } from '../components/Icons';
-import Input from '../components/Input';
-import { REFERENCE_DATE, TRAINING_LEVEL_DEFINITIONS } from '../constants';
-import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, DbCustomerProfile, DbTransaction, DbTrainingProgress } from '../types';
-import { supabase } from '../supabaseClient';
-import { parseDateString } from '../utils';
+import { CURRENT_EMPLOYEE, REFERENCE_DATE } from '../constants'; // Only CURRENT_EMPLOYEE and REFERENCE_DATE remain
+import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum } from '../types';
 
 interface TrainingHourCircleProps {
   filled: boolean;
@@ -32,6 +27,8 @@ interface TrainingHourCircleProps {
 }
 
 const TrainingPawIcon: React.FC<TrainingHourCircleProps> = ({ filled, className = '' }) => (
+  // Updated to use an <img> tag with the provided URL
+  // Increased size by 200% (from h-8 w-8 to h-16 w-16 for div, and h-5 w-5 to h-10 w-10 for img)
   <div
     className={`flex items-center justify-center h-16 w-16 rounded-full border
       ${filled ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200'}
@@ -40,13 +37,14 @@ const TrainingPawIcon: React.FC<TrainingHourCircleProps> = ({ filled, className 
     <img
       src="https://hs-bw.com/wp-content/uploads/2025/12/Suchund-Icon.png"
       alt="Paw Icon"
-      className={`h-10 w-10 object-contain ${!filled ? 'grayscale opacity-50' : ''}`}
+      className={`h-10 w-10 object-contain ${!filled ? 'grayscale opacity-50' : ''}`} // Apply grayscale and opacity for unfilled
     />
   </div>
 );
 
+// New component for the 100-hour milestone badge with visual variations
 interface HundredHourMilestoneBadgeProps {
-  milestoneNumber: number;
+  milestoneNumber: number; // 1 for 100, 2 for 200, etc.
 }
 
 const HundredHourMilestoneBadge: React.FC<HundredHourMilestoneBadgeProps> = ({ milestoneNumber }) => {
@@ -94,233 +92,71 @@ const HundredHourMilestoneBadge: React.FC<HundredHourMilestoneBadgeProps> = ({ m
 
 
 interface CustomerDetailsProps {
-  customers: Customer[]; // Wird zur Ermittlung von Mitarbeiternamen verwendet
-  allTransactions: Transaction[]; // Alle Transaktionen für Berichte/Mitarbeiterzuordnung
+  customers: Customer[];
+  transactions: Transaction[];
   onUpdateCustomer: (updatedCustomer: Customer) => void;
   onAddTransaction: (newTransaction: Transaction) => void;
-  currentUser: User | null;
-  onRefreshData: () => Promise<void>; // Prop zur Auslösung der Datenaktualisierung in App.tsx
+  currentUser: User; // Added currentUser prop
 }
 
 const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   customers,
-  allTransactions,
+  transactions,
   onUpdateCustomer,
   onAddTransaction,
-  currentUser,
-  onRefreshData,
+  currentUser, // Destructure currentUser
 }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [showTransactionTypeModal, setShowTransactionTypeModal] = useState(false);
-  const [selectedTransactionType, setSelectedTransactionType] = useState<'Aufladung' | 'Abbuchung' | null>(null);
-  const [showTransactionDetailsInputModal, setShowTransactionDetailsInputModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false); // Renamed for clarity
+  const [showTransactionTypeModal, setShowTransactionTypeModal] = useState(false); // New state for selection modal
   const [transactionData, setTransactionData] = useState<TransactionConfirmationData | null>(null);
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null); // Local state for customer
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(true); // Loading state for customer
 
-  // Status für editierbare Felder
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editFirstName, setEditFirstName] = useState('');
-  const [editLastName, setEditLastName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editDogName, setEditDogName] = useState('');
-  const [editChipNumber, setEditChipNumber] = useState('');
-
-  // Status zur Verwaltung erweiterter/reduzierter Abschnitte
+  // State to manage expanded/collapsed sections
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
 
-
-  const fetchCustomerDetails = async (customerId: string, authUserId: string | null) => {
-    setIsLoadingCustomer(true);
-    setError(null);
-    try {
-      // 1. Kundenprofil abrufen
-      const { data: customerProfileData, error: customerProfileError } = await supabase
-        .from('customer_profiles')
-        .select('*')
-        .eq('id', customerId)
-        .single();
-
-      if (customerProfileError && customerProfileError.code !== 'PGRST116') { // PGRST116 bedeutet "keine Zeilen gefunden"
-        throw customerProfileError;
-      }
-
-      let currentCustomerProfile: DbCustomerProfile | null = customerProfileData;
-
-      // Wenn Kunde eingeloggt UND kein Profil existiert, erstelle eines
-      if (currentUser?.role === UserRoleEnum.KUNDE && authUserId && !currentCustomerProfile) {
-        const { data: newProfileData, error: newProfileError } = await supabase
-          .from('customer_profiles')
-          .insert({ auth_user_id: authUserId, qr_code_data: `https://example.com/customer/${customerId}` }) // Vereinfachte QR-Code-Daten
-          .select()
-          .single();
-
-        if (newProfileError) {
-          throw newProfileError;
-        }
-        currentCustomerProfile = newProfileData;
-        await onRefreshData(); // Globale Daten nach Profilerstellung aktualisieren
-        alert('Ihr Kundenprofil wurde automatisch erstellt. Bitte füllen Sie Ihre Daten aus.');
-      } else if (!currentCustomerProfile) {
-        // Wenn kein Profil vorhanden ist und kein automatisch erstellter Kundenbenutzer, wurde der Kunde nicht gefunden.
-        setError(`Kunde mit ID "${customerId}" nicht gefunden.`);
-        setCustomer(null);
-        setIsLoadingCustomer(false);
-        return;
-      }
-
-      // Die E-Mail des Kunden wird jetzt aus dem `Customer`-Objekt in `App.tsx` bezogen
-      // und sollte über die `customers`-Liste oder `currentUser` in `props` verfügbar sein.
-      const customerEmail = customers.find(c => c.id === customerId)?.email || 'Nicht verfügbar';
-
-
-      // 3. Transaktionen für diesen Kunden abrufen
-      const { data: dbTransactions, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('customer_profile_id', customerId);
-
-      if (transactionsError) {
-        throw transactionsError;
-      }
-
-      const transformedTransactions: Transaction[] = dbTransactions.map(dbTrx => {
-        const employee = customers.find(emp => emp.authUserId === dbTrx.created_by_user_id);
-        return {
-          id: dbTrx.id,
-          customerId: dbTrx.customer_profile_id,
-          employeeId: dbTrx.created_by_user_id,
-          type: dbTrx.type,
-          description: dbTrx.description || (dbTrx.type === 'recharge' ? 'Aufladung' : 'Trails'),
-          amount: dbTrx.amount,
-          date: parseDateString(dbTrx.created_at)?.toLocaleDateString('de-DE') || dbTrx.created_at,
-          employee: employee ? `${employee.firstName} ${employee.lastName}` : 'System',
-        };
-      });
-
-      const currentBalance = transformedTransactions.reduce((sum, trx) => {
-        return trx.type === 'recharge' ? sum + trx.amount : sum - trx.amount;
-      }, 0);
-
-      // 4. Trainingsfortschritt für diesen Kunden abrufen
-      const { data: dbTrainingProgress, error: trainingProgressError } = await supabase
-        .from('training_progress')
-        .select('*')
-        .eq('customer_profile_id', customerId);
-
-      if (trainingProgressError && trainingProgressError.code !== 'PGRST116') {
-        throw trainingProgressError;
-      }
-
-      let currentTrainingProgress: DbTrainingProgress[] = dbTrainingProgress || [];
-
-      // Wenn keine Trainingsfortschrittseinträge existieren, initiale erstellen
-      if (currentTrainingProgress.length === 0) {
-        const initialProgressInserts = TRAINING_LEVEL_DEFINITIONS.map(level => ({
-          customer_profile_id: customerId,
-          level_name: level.name,
-          completed_trails: 0,
-          status: level.id === 1 ? 'Aktuell' : 'Gesperrt',
-        }));
-        const { data: newProgressData, error: newProgressError } = await supabase
-          .from('training_progress')
-          .insert(initialProgressInserts)
-          .select();
-        
-        if (newProgressError) {
-          console.error('Fehler beim Initialisieren des Ausbildungsfortschritts:', newProgressError.message);
-          setError('Fehler beim Initialisieren des Ausbildungsfortschritts.');
-          setIsLoadingCustomer(false);
-          return;
-        }
-        currentTrainingProgress = newProgressData;
-      }
-
-      // Trainingsfortschritt für die UI transformieren
-      const trainingProgressForUI = TRAINING_LEVEL_DEFINITIONS.map(levelDef => {
-        const customerLevelProgress = currentTrainingProgress.find(p => p.level_name === levelDef.name);
-        return {
-          id: levelDef.id,
-          dbId: customerLevelProgress?.id || '', // DB PK speichern
-          name: levelDef.name,
-          requiredHours: levelDef.requiredHours,
-          completedHours: customerLevelProgress?.completed_trails || 0,
-          status: customerLevelProgress?.status || (levelDef.id === 1 ? 'Aktuell' : 'Gesperrt'),
-        };
-      }).sort((a, b) => a.id - b.id); // Richtige Reihenfolge sicherstellen
-
-      const currentOverallLevel = trainingProgressForUI.find(p => p.status === 'Aktuell')?.name || TrainingLevelEnum.EINSTEIGER;
-
-      // Avatar-Initialen und Farbe aus den globalen Kunden-Props oder Ableitung
-      const customerFromProps = customers.find(c => c.id === customerId);
-      const initials = customerFromProps?.avatarInitials || `${currentCustomerProfile.first_name?.charAt(0) || ''}${currentCustomerProfile.last_name?.charAt(0) || ''}`.toUpperCase().slice(0, 2);
-      const avatarColor = customerFromProps?.avatarColor || `bg-${['blue', 'green', 'orange', 'red', 'purple', 'indigo'][Math.floor(Math.random() * 6)]}-500`;
-
-      const finalCustomer: Customer = {
-        id: customerId,
-        authUserId: currentCustomerProfile.auth_user_id,
-        avatarInitials: initials,
-        avatarColor: avatarColor,
-        firstName: currentCustomerProfile.first_name || '',
-        lastName: currentCustomerProfile.last_name || '',
-        email: customerEmail, // Verwenden der von App.tsx bereitgestellten E-Mail
-        phone: currentCustomerProfile.phone || '',
-        dogName: currentCustomerProfile.dog_name || '',
-        chipNumber: currentCustomerProfile.chip_number || '',
-        qrCodeData: currentCustomerProfile.qr_code_data || '',
-        balance: currentBalance,
-        totalTransactions: transformedTransactions.length,
-        level: currentOverallLevel,
-        createdAt: parseDateString(currentCustomerProfile.created_at || new Date().toISOString())?.toLocaleDateString('de-DE') || '-',
-        documents: [], // Nicht von DB implementiert
-        trainingProgress: trainingProgressForUI,
-      };
-
-      setCustomer(finalCustomer);
-      // Bearbeitungszustände initialisieren
-      setEditFirstName(finalCustomer.firstName);
-      setEditLastName(finalCustomer.lastName);
-      setEditPhone(finalCustomer.phone);
-      setEditDogName(finalCustomer.dogName);
-      setEditChipNumber(finalCustomer.chipNumber);
-
-      // Erweiterte Abschnitte initialisieren
-      setExpandedSections(prev => {
-        const newExpanded = { ...prev };
-        trainingProgressForUI.forEach(section => {
-          if (newExpanded[section.id] === undefined) {
-            newExpanded[section.id] = false;
-          }
-        });
-        return newExpanded;
-      });
-
-    } catch (err: any) {
-      console.error('Fehler beim Abrufen der Kundendetails:', err.message);
-      setError(`Fehler beim Laden der Kundendaten: ${err.message}`);
-      setCustomer(null);
-    } finally {
-      setIsLoadingCustomer(false);
-    }
-  };
-
+  // Effect to find and set the customer when `id` or `customers` prop changes
   useEffect(() => {
+    setIsLoadingCustomer(true); // Always set loading to true when dependencies change
+    console.log(`CustomerDetails useEffect: ID from URL: ${id}, Customers prop length: ${customers.length}`);
+    
     if (id) {
-      // Für Kundenrollen sicherstellen, dass sie nur ihr eigenes Profil sehen können
-      if (currentUser?.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId !== id) {
-        navigate(`/customers/${currentUser.associatedCustomerId}`, { replace: true });
-        return;
-      }
-      fetchCustomerDetails(id, currentUser?.id || null);
-    } else {
-      setError('Keine Kunden-ID in der URL gefunden.');
-      setCustomer(null);
-    }
-  }, [id, currentUser?.id, currentUser?.role, currentUser?.associatedCustomerId, customers]); // Re-Run, wenn ID oder currentUser oder customers ändert
+      const foundCustomer = customers.find((c) => c.id === id);
+      console.log(`CustomerDetails useEffect: Found customer:`, foundCustomer);
+      setCustomer(foundCustomer || null);
+      setIsLoadingCustomer(false); // Done loading for this cycle
 
+      // Also update initial expanded sections if customer is found
+      if (foundCustomer) {
+        setExpandedSections(prev => {
+          const newExpanded = { ...prev };
+          foundCustomer.trainingProgress.forEach(section => {
+            if (newExpanded[section.id] === undefined) {
+              newExpanded[section.id] = false; // Initialize if not set
+            }
+          });
+          return newExpanded;
+        });
+      }
+    } else {
+      setCustomer(null);
+      setIsLoadingCustomer(false); // No ID, so no customer to load
+    }
+  }, [id, customers]); // Re-run when ID or customers list changes
+
+  // Handle cases where ID is missing from URL or customer not found
+  if (!id) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        Keine Kunden-ID in der URL gefunden.
+        <Button variant="primary" onClick={() => navigate('/customers')} className="mt-4">
+          Zurück zur Kundenliste
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoadingCustomer) {
     return (
@@ -330,21 +166,10 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     );
   }
 
-  if (error) {
-    return (
-      <div className="p-8 text-center text-red-600">
-        {error}
-        <Button variant="primary" onClick={() => navigate('/customers')} className="mt-4">
-          Zurück zur Kundenliste
-        </Button>
-      </div>
-    );
-  }
-
   if (!customer) {
     return (
       <div className="p-8 text-center text-gray-600">
-        Kunde nicht gefunden oder nicht verfügbar.
+        Kunde mit ID "{id}" nicht gefunden.
         <Button variant="primary" onClick={() => navigate('/customers')} className="mt-4">
           Zurück zur Kundenliste
         </Button>
@@ -352,167 +177,116 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     );
   }
 
-  // Diese Funktion öffnet nun speziell das *Bestätigungs*-Modal
+  // This function now specifically opens the *confirmation* modal
   const handleOpenConfirmationModal = (amount: number, type: 'Aufladung' | 'Abbuchung', description?: string) => {
-    if (!customer) return; // Sollte mit den aktuellen Prüfungen nicht passieren
-
     const oldBalance = customer.balance;
     const newBalance = type === 'Aufladung' ? oldBalance + amount : oldBalance - amount;
     setTransactionData({
       customerId: customer.id,
       customerName: `${customer.firstName} ${customer.lastName}`,
-      employee: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
+      employee: CURRENT_EMPLOYEE,
       transactionType: type,
       amount: amount,
       oldBalance: oldBalance,
       newBalance: newBalance,
-      description: description, // Beschreibung übergeben
+      description: description, // Pass the description
     });
     setShowConfirmationModal(true);
   };
 
-  // Neue Funktion zur Handhabung der Auswahl des Transaktionstyps aus dem TransactionTypeSelectionModal
-  const handleSelectTransactionType = (type: 'Aufladung' | 'Abbuchung') => {
-    setSelectedTransactionType(type);
-    setShowTransactionTypeModal(false); // Das initiale Typauswahl-Modal schließen
-    setShowTransactionDetailsInputModal(true); // Das neue Detail-Eingabe-Modal öffnen
-  };
+  const handleConfirmTransaction = () => {
+    if (!transactionData || !customer) return;
 
-  // Neue Funktion zur Handhabung der Bestätigung von Transaktionsdetails aus dem TransactionDetailsInputModal
-  const handleConfirmTransactionDetails = (amount: number, description: string) => {
-    if (!selectedTransactionType || !customer) return; // Sollte nicht passieren
+    let finalUpdatedCustomer: Customer = { ...customer };
 
-    // Die vorhandene handleOpenConfirmationModal mit allen gesammelten Daten aufrufen
-    handleOpenConfirmationModal(amount, selectedTransactionType, description);
-    setShowTransactionDetailsInputModal(false); // Das Detail-Eingabe-Modal schließen
-    setSelectedTransactionType(null); // Ausgewählten Typ nach Initiierung der Bestätigung zurücksetzen
-  };
+    // Update customer's balance and totalTransactions first
+    finalUpdatedCustomer = {
+      ...finalUpdatedCustomer,
+      balance: transactionData.newBalance,
+      totalTransactions: customer.totalTransactions + 1,
+    };
 
-  const handleConfirmTransaction = async () => {
-    if (!transactionData || !customer || !currentUser) {
-      alert('Transaktionsdaten oder Benutzer fehlen.');
-      return;
-    }
+    // Check if the transaction is a 'Trails' debit
+    const isRecharge = transactionData.transactionType === 'Aufladung';
+    if (!isRecharge && transactionData.description === 'Trails' && transactionData.amount === 18) {
+      const currentTrainingProgress = [...customer.trainingProgress]; // Create a mutable copy of the array
+      let customerOverallLevel = finalUpdatedCustomer.level;
 
-    try {
-      // 1. Neue Transaktion einfügen
-      const { error: insertTransactionError } = await supabase
-        .from('transactions')
-        .insert({
-          customer_profile_id: customer.id,
-          created_by_user_id: currentUser.id,
-          type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
-          description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Trails'),
-          amount: transactionData.amount,
-          created_at: new Date().toISOString(),
-        });
+      const currentLevelIndex = currentTrainingProgress.findIndex(
+        (section) => section.status === 'Aktuell'
+      );
 
-      if (insertTransactionError) {
-        throw insertTransactionError;
-      }
+      if (currentLevelIndex !== -1) {
+        const currentSection = { ...currentTrainingProgress[currentLevelIndex] }; // Deep copy the section object
 
-      // 2. Trainingsfortschritt aktualisieren, wenn es sich um eine 'Trails'-Abbuchung handelt
-      const isRecharge = transactionData.transactionType === 'Aufladung';
-      // Angepasste Abbuchungsprüfung: Angenommen, transactionData.amount stellt die Anzahl der Trails dar, wenn die Beschreibung 'Trails' ist
-      const isTrailDebit = !isRecharge && transactionData.description === 'Trails' && transactionData.amount > 0;
+        // For Expert level, completedHours can go beyond requiredHours, up to 500 for milestones
+        if (currentSection.name === TrainingLevelEnum.EXPERT) {
+          // Max out at 500 for now, or allow indefinite. User requested milestones up to 500.
+          if (currentSection.completedHours < 500) { // Assuming 500 is the max for tracking milestones
+            currentSection.completedHours += 1;
+            currentTrainingProgress[currentLevelIndex] = currentSection; // Update section in copy
+          }
+        } else if (currentSection.completedHours < currentSection.requiredHours) {
+          currentSection.completedHours += 1; // Increment completed hours
 
-      if (isTrailDebit) {
-        const currentTrainingProgress = [...customer.trainingProgress];
-        let customerOverallLevel = customer.level;
+          // Check for level completion and advancement
+          if (currentSection.completedHours === currentSection.requiredHours) {
+            currentSection.status = 'Abgeschlossen'; // Mark current as completed
 
-        const currentLevelIndex = currentTrainingProgress.findIndex(
-          (section) => section.status === 'Aktuell'
-        );
-
-        if (currentLevelIndex !== -1) {
-          const currentSection = { ...currentTrainingProgress[currentLevelIndex] };
-
-          // Für das Expert-Level können die completedHours die requiredHours überschreiten
-          if (currentSection.name === TrainingLevelEnum.EXPERT) {
-            currentSection.completedHours += transactionData.amount; // Abgebuchte Menge direkt zu den abgeschlossenen Trails für Expert hinzufügen
-          } else if (currentSection.completedHours < currentSection.requiredHours) {
-            // Abgeschlossene Stunden um den abgebuchten Betrag erhöhen (angenommen, der Betrag ist hier die Anzahl der Trails)
-            const trailsDebited = transactionData.amount;
-            currentSection.completedHours += trailsDebited; 
-
-            if (currentSection.completedHours >= currentSection.requiredHours) { // Prüfen, ob die Anforderungen erfüllt oder überschritten wurden
-              currentSection.status = 'Abgeschlossen';
-
-              const nextLevelIndex = currentLevelIndex + 1;
-              if (nextLevelIndex < currentTrainingProgress.length) {
-                const nextSection = { ...currentTrainingProgress[nextLevelIndex] };
-                nextSection.status = 'Aktuell';
-                customerOverallLevel = nextSection.name;
-                currentTrainingProgress[nextLevelIndex] = nextSection;
-              }
+            const nextLevelIndex = currentLevelIndex + 1;
+            if (nextLevelIndex < currentTrainingProgress.length) {
+              const nextSection = { ...currentTrainingProgress[nextLevelIndex] }; // Deep copy
+              nextSection.status = 'Aktuell'; // Activate next level
+              customerOverallLevel = nextSection.name; // Update overall customer level
+              currentTrainingProgress[nextLevelIndex] = nextSection; // Update next section in copy
             }
           }
-
-          // DB-Eintrag für den aktuellen Abschnitt aktualisieren
-          const { error: updateProgressError } = await supabase
-            .from('training_progress')
-            .update({
-              completed_trails: currentSection.completedHours,
-              status: currentSection.status,
-              level_name: currentSection.name, // Sicherstellen, dass level_name bei der Aktualisierung korrekt gesetzt ist
-            })
-            .eq('id', currentSection.dbId);
-
-          if (updateProgressError) {
-            throw updateProgressError;
-          }
-
-          // Wenn sich das Level geändert hat, sicherstellen, dass customer.level dies widerspiegelt (obwohl nicht in customer_profiles gespeichert)
-          // Das `level` im Kundenobjekt wird abgeleitet, aber diese Logik hilft, es in der UI temporär zu aktualisieren.
-          if (customerOverallLevel !== customer.level) {
-            // Den Status anderer Abschnitte aktualisieren, falls erforderlich (z.B. wenn ein neues Level 'Aktuell' wurde)
-            for(const section of currentTrainingProgress) {
-              if (section.id !== currentSection.id) {
-                await supabase.from('training_progress').update({status: section.status}).eq('id', section.dbId);
-              }
-            }
-          }
+          currentTrainingProgress[currentLevelIndex] = currentSection; // Update current section in copy
         }
+
+        // Apply updated training progress and overall level to the final customer object
+        finalUpdatedCustomer = {
+          ...finalUpdatedCustomer,
+          trainingProgress: currentTrainingProgress,
+          level: customerOverallLevel,
+        };
       }
-
-      alert('Transaktion erfolgreich gebucht!');
-      setShowConfirmationModal(false);
-      setTransactionData(null);
-      await onRefreshData(); // Vollständige Datenaktualisierung in App.tsx auslösen
-
-    } catch (err: any) {
-      console.error('Fehler beim Bestätigen der Transaktion:', err.message);
-      alert(`Fehler beim Buchen der Transaktion: ${err.message}`);
     }
+
+    // Propagate all updates to global state
+    onUpdateCustomer(finalUpdatedCustomer);
+
+    // Create and add new transaction
+    const newTransaction: Transaction = {
+      id: `trx-${transactions.length + 1}-${Date.now()}`, // Simple unique ID
+      customerId: customer.id,
+      type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
+      description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Trails'),
+      amount: transactionData.amount,
+      date: REFERENCE_DATE.toLocaleDateString('de-DE'), // Use REFERENCE_DATE for consistency
+      employee: CURRENT_EMPLOYEE,
+    };
+    onAddTransaction(newTransaction); // Propagate new transaction to global state
+
+    console.log('Transaction confirmed:', transactionData);
+    setShowConfirmationModal(false);
+    setTransactionData(null);
   };
 
-  const handleUpdateProfile = async () => {
-    if (!customer) return;
+  // New handler for selecting transaction type from the selection modal
+  const handleSelectTransactionType = (type: 'Aufladung' | 'Abbuchung') => {
+    setShowTransactionTypeModal(false); // Close the selection modal
 
-    try {
-      const { error: updateError } = await supabase
-        .from('customer_profiles')
-        .update({
-          first_name: editFirstName,
-          last_name: editLastName,
-          phone: editPhone,
-          dog_name: editDogName,
-          chip_number: editChipNumber,
-        })
-        .eq('id', customer.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      alert('Kundenprofil erfolgreich aktualisiert!');
-      setIsEditingProfile(false);
-      await onRefreshData(); // Globale Daten aktualisieren, um ggf. Kundenliste zu aktualisieren
-
-    } catch (err: any) {
-      console.error('Fehler beim Aktualisieren des Kundenprofils:', err.message);
-      alert(`Fehler beim Aktualisieren des Profils: ${err.message}`);
+    let defaultAmount = 0;
+    let description = '';
+    if (type === 'Aufladung') {
+      defaultAmount = 215; // Example default amount for recharge
+      description = 'Guthabenaufladung';
+    } else { // Abbuchung
+      defaultAmount = 18; // Example default amount for debit
+      description = 'Trails';
     }
+    handleOpenConfirmationModal(defaultAmount, type, description); // Open the confirmation modal
   };
 
   const getStatusClasses = (status: string) => {
@@ -528,24 +302,14 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     }
   };
 
-  // Hilfskomponente für eine konsistente Datenzeile
-  const DataRow: React.FC<{ Icon: React.ElementType; label: string; value: string | number; editable?: boolean; editValue?: string; onEditChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }> = ({ Icon, label, value, editable, editValue, onEditChange }) => (
+  // Helper component for a consistent data row
+  const DataRow: React.FC<{ Icon: React.ElementType; label: string; value: string | number }> = ({ Icon, label, value }) => (
     <div>
       <div className="flex items-center text-gray-500 mb-1">
         <Icon className="h-4 w-4 mr-2" />
         <span className="text-sm font-medium">{label}</span>
       </div>
-      {editable ? (
-        <Input
-          id={`edit-${label.replace(/\s/g, '')}`}
-          type="text"
-          value={editValue || ''}
-          onChange={onEditChange}
-          className="ml-6 mt-1 p-1 text-sm bg-gray-50 border border-gray-200 rounded-md focus:ring-blue-500 focus:border-blue-500"
-        />
-      ) : (
-        <p className="font-semibold text-gray-900 ml-6">{value}</p>
-      )}
+      <p className="font-semibold text-gray-900 ml-6">{value}</p> {/* Adjusted margin for alignment */}
     </div>
   );
 
@@ -556,19 +320,19 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     }));
   };
 
-  // Hilfsprogramm zur Ermittlung der Farben für die Level-Übersichtskarte basierend auf TrainingLevelEnum
+  // Helper to get colors for the Level summary card based on TrainingLevelEnum
   const getLevelSummaryCardColors = (level: TrainingLevelEnum) => {
     switch (level) {
       case TrainingLevelEnum.EINSTEIGER:
-        return { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', icon: 'text-fuchsia-700' };
+        return { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', icon: 'text-fuchsia-700' }; // Orchid
       case TrainingLevelEnum.GRUNDLAGEN:
-        return { bg: 'bg-lime-50', text: 'text-lime-700', icon: 'text-lime-700' };
+        return { bg: 'bg-lime-50', text: 'text-lime-700', icon: 'text-lime-700' };    // Lime Green
       case TrainingLevelEnum.FORTGESCHRITTENE:
-        return { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'text-sky-700' };
+        return { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'text-sky-700' };     // Sky Blue
       case TrainingLevelEnum.MASTERCLASS:
-        return { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'text-amber-700' };
+        return { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'text-amber-700' };   // Peru
       case TrainingLevelEnum.EXPERT:
-        return { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'text-indigo-700' };
+        return { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'text-indigo-700' };  // Indigo
       default:
         return { bg: 'bg-gray-50', text: 'text-gray-700', icon: 'text-gray-700' };
     }
@@ -576,16 +340,14 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
   const levelSummaryColors = getLevelSummaryCardColors(customer.level);
 
-  // Feststellen, ob der aktuelle Benutzer die Berechtigung hat, Aktionen durchzuführen (Admin oder Mitarbeiter oder eigener Kunde)
-  const canPerformActions = currentUser?.role === UserRoleEnum.ADMIN || currentUser?.role === UserRoleEnum.MITARBEITER || (currentUser?.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId === customer.id);
-  const canEditProfile = currentUser?.role === UserRoleEnum.ADMIN || currentUser?.role === UserRoleEnum.MITARBEITER || (currentUser?.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId === customer.id);
-  const canMakeTransactions = currentUser?.role === UserRoleEnum.ADMIN || currentUser?.role === UserRoleEnum.MITARBEITER; // Nur Mitarbeiter/Admin können Transaktionen durchführen
+  // Determine if the current user has permission to perform actions (Admin or Mitarbeiter)
+  const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
 
   return (
     <div className="p-6 md:p-8 lg:p-10 min-h-screen">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div className="flex items-center">
-          {currentUser?.role !== UserRoleEnum.KUNDE && (
+          {currentUser.role !== UserRoleEnum.KUNDE && ( // Only show back button if not a customer
             <button onClick={() => navigate('/customers')} className="text-gray-500 hover:text-gray-700 mr-4">
               <ArrowLeftIcon className="h-6 w-6" />
             </button>
@@ -595,53 +357,36 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <span className="text-gray-500 font-normal text-base ml-2">Kundendetails & Übersicht</span>
           </h1>
         </div>
-        {canPerformActions && (
+        {canPerformActions && ( // Conditionally render action buttons
           <div className="flex space-x-3">
-            {canEditProfile && (
-              isEditingProfile ? (
-                <>
-                  <Button variant="secondary" onClick={() => setIsEditingProfile(false)}>
-                    Abbrechen
-                  </Button>
-                  <Button variant="primary" onClick={handleUpdateProfile}>
-                    Speichern
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" icon={EditIcon} onClick={() => setIsEditingProfile(true)}>
-                  Stammdaten bearbeiten
-                </Button>
-              )
-            )}
-            {canMakeTransactions && (
-              <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>
-                Transaktionen
-              </Button>
-            )}
+            <Button variant="outline">Stammdaten</Button>
+            <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>
+              Transaktionen
+            </Button>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Linke Spalte */}
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Persönliche Daten */}
           <Card>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Persönliche Daten</h2>
-            <div className="flex items-start">
+            <div className="flex items-start"> {/* Use flex to align avatar and data grid */}
               <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="lg" className="mr-6 flex-shrink-0" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 flex-grow">
-                <DataRow Icon={UserIcon} label="Vorname" value={customer.firstName} editable={isEditingProfile} editValue={editFirstName} onEditChange={(e) => setEditFirstName(e.target.value)} />
-                <DataRow Icon={UserIcon} label="Nachname" value={customer.lastName} editable={isEditingProfile} editValue={editLastName} onEditChange={(e) => setEditLastName(e.target.value)} />
-                <DataRow Icon={MailIcon} label="E-Mail" value={customer.email} /> {/* E-Mail ist read-only */}
-                <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} editable={isEditingProfile} editValue={editPhone} onEditChange={(e) => setEditPhone(e.target.value)} />
-                <DataRow Icon={HeartIcon} label="Hund" value={customer.dogName} editable={isEditingProfile} editValue={editDogName} onEditChange={(e) => setEditDogName(e.target.value)} />
-                <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} editable={isEditingProfile} editValue={editChipNumber} onEditChange={(e) => setEditChipNumber(e.target.value)} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 flex-grow"> {/* Two-column grid for data */}
+                <DataRow Icon={UserIcon} label="Vorname" value={customer.firstName} />
+                <DataRow Icon={UserIcon} label="Nachname" value={customer.lastName} />
+                <DataRow Icon={MailIcon} label="E-Mail" value={customer.email} />
+                <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} />
+                <DataRow Icon={HeartIcon} label="Hund" value={customer.dogName} />
+                <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} />
               </div>
             </div>
           </Card>
 
-          {/* Konto-Übersicht (Zusammenfassungskarten) */}
+          {/* Konto-Übersicht (Summary Cards) */}
           <Card>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto-Übersicht</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -668,45 +413,47 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Ausbildungsfortschritt</h2>
             <div className="space-y-6">
               {customer.trainingProgress.map((section) => {
-                let headerBgClass = 'bg-gray-50';
+                let headerBgClass = 'bg-gray-50'; // Default fallback
                 let levelCircleBgClass = 'bg-gray-400';
 
+                // Determine header background color based on level name (User's specified colors)
                 switch (section.name) {
                     case TrainingLevelEnum.EINSTEIGER:
-                        headerBgClass = 'bg-fuchsia-50';
+                        headerBgClass = 'bg-fuchsia-50'; // Orchid
                         break;
                     case TrainingLevelEnum.GRUNDLAGEN:
-                        headerBgClass = 'bg-lime-50';
+                        headerBgClass = 'bg-lime-50';    // Lime Green
                         break;
                     case TrainingLevelEnum.FORTGESCHRITTENE:
-                        headerBgClass = 'bg-sky-50';
+                        headerBgClass = 'bg-sky-50';     // Sky Blue
                         break;
                     case TrainingLevelEnum.MASTERCLASS:
-                        headerBgClass = 'bg-amber-50';
+                        headerBgClass = 'bg-amber-50';   // Peru
                         break;
                     case TrainingLevelEnum.EXPERT:
-                        headerBgClass = 'bg-indigo-50';
+                        headerBgClass = 'bg-indigo-50';  // Indigo
                         break;
                     default:
                         headerBgClass = 'bg-gray-50';
                         break;
                 }
 
+                // Determine inner circle color for the level number (based on ID and User's specified colors)
                 switch (section.name) {
                   case TrainingLevelEnum.EINSTEIGER:
-                      levelCircleBgClass = 'bg-fuchsia-500';
+                      levelCircleBgClass = 'bg-fuchsia-500'; // Orchid
                       break;
                   case TrainingLevelEnum.GRUNDLAGEN:
-                      levelCircleBgClass = 'bg-lime-500';
+                      levelCircleBgClass = 'bg-lime-500';    // Lime Green
                       break;
                   case TrainingLevelEnum.FORTGESCHRITTENE:
-                      levelCircleBgClass = 'bg-sky-500';
+                      levelCircleBgClass = 'bg-sky-500';     // Sky Blue
                       break;
                   case TrainingLevelEnum.MASTERCLASS:
-                      levelCircleBgClass = 'bg-amber-500';
+                      levelCircleBgClass = 'bg-amber-500';   // Peru
                       break;
                   case TrainingLevelEnum.EXPERT:
-                      levelCircleBgClass = 'bg-indigo-500';
+                      levelCircleBgClass = 'bg-indigo-500';  // Indigo
                       break;
                   default:
                       levelCircleBgClass = 'bg-gray-500';
@@ -753,16 +500,16 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                                 Fortschritt: {currentHours} Trails absolviert im Expert-Status
                               </p>
                               <div className="flex flex-wrap gap-2">
-                                {/* Vollständige 100-Stunden-Meilenstein-Abzeichen rendern */}
+                                {/* Render full 100-hour milestone badges */}
                                 {Array.from({ length: fullMilestones }).map((_, i) => (
                                   <HundredHourMilestoneBadge key={`milestone-${i}`} milestoneNumber={i + 1} />
                                 ))}
 
-                                {/* Einzelne Pfoten-Icons für verbleibende Stunden rendern */}
+                                {/* Render individual paw icons for remaining hours */}
                                 {Array.from({ length: remainingHours }).map((_, i) => (
                                   <TrainingPawIcon key={`paw-${i}`} filled={true} />
                                 ))}
-                                {/* Keine leeren Pfoten-Icons für den Expert-Status, da es eine kontinuierliche Progression ist */}
+                                {/* No empty paw icons for Expert status, as it's continuous progression */}
                               </div>
                             </>
                           );
@@ -790,9 +537,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
         </div>
 
-        {/* Rechte Spalte */}
+        {/* Right Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Konto-Übersicht (Detailliert) */}
+          {/* Konto-Übersicht (Detailed) */}
           <Card>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto-Übersicht</h2>
             <div className="space-y-2 text-gray-700">
@@ -808,8 +555,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <span>Erstellt am</span>
                 <span className="font-semibold">{customer.createdAt}</span>
               </div>
+              {/* Removed 'Erstellt von' row */}
               <div className="flex justify-between">
-                <span>Kunden-ID</span>
+                <span>Kunden-ID</span> {/* Added new row for Customer ID */}
                 <span className="font-semibold">{customer.id}</span>
               </div>
             </div>
@@ -827,7 +575,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       </div>
 
       <TransactionConfirmationModal
-        isOpen={showConfirmationModal}
+        isOpen={showConfirmationModal} // Use the new state
         onClose={() => setShowConfirmationModal(false)}
         onConfirm={handleConfirmTransaction}
         data={transactionData}
@@ -838,19 +586,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setShowTransactionTypeModal(false)}
         onSelectType={handleSelectTransactionType}
       />
-
-      {/* Neues Modal zur Eingabe von Transaktionsdetails nach der Typauswahl */}
-      {selectedTransactionType && (
-        <TransactionDetailsInputModal
-          isOpen={showTransactionDetailsInputModal}
-          onClose={() => {
-            setShowTransactionDetailsInputModal(false);
-            setSelectedTransactionType(null); // Ausgewählten Typ zurücksetzen, wenn Modal ohne Bestätigung geschlossen wird
-          }}
-          transactionType={selectedTransactionType}
-          onConfirmDetails={handleConfirmTransactionDetails}
-        />
-      )}
     </div>
   );
 };
