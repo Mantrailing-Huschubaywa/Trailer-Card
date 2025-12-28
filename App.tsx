@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -8,7 +7,7 @@ import CustomerDetails from './pages/CustomerDetails';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement'; // Import the new UserManagement page
 import LoginPage from './pages/LoginPage'; // Import the new LoginPage
-import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum } from './types'; // Import types
+import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum, NewCustomerData } from './types'; // Import types
 import { REFERENCE_DATE } from './constants'; // Import constants needed for initial state
 
 // Initial Mock Data (moved from constants.ts)
@@ -460,13 +459,75 @@ const App: React.FC = () => {
   };
 
   const handleUpdateCustomer = (updatedCustomer: Customer) => {
+    // Update the customer in the customers list
     setCustomers(prevCustomers =>
       prevCustomers.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
+    );
+  
+    // Also, find and update the corresponding user to keep data in sync
+    setUsers(prevUsers =>
+      prevUsers.map(user => {
+        if (user.role === UserRoleEnum.KUNDE && user.associatedCustomerId === updatedCustomer.id) {
+          return {
+            ...user,
+            firstName: updatedCustomer.firstName,
+            lastName: updatedCustomer.lastName,
+            email: updatedCustomer.email,
+            avatarInitials: `${updatedCustomer.firstName.charAt(0)}${updatedCustomer.lastName.charAt(0)}`.toUpperCase().slice(0, 2),
+          };
+        }
+        return user;
+      })
     );
   };
 
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
+  };
+  
+  const handleAddCustomer = (customerData: NewCustomerData) => {
+    const newCustomerId = `cust-${customers.length + 1}-${Date.now()}`;
+    const initials = `${customerData.firstName.charAt(0)}${customerData.lastName.charAt(0)}`.toUpperCase().slice(0, 2);
+    const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
+    const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+
+    const newCustomer: Customer = {
+      ...customerData,
+      id: newCustomerId,
+      avatarInitials: initials,
+      avatarColor: randomColor,
+      balance: 0.00,
+      totalTransactions: 0,
+      level: TrainingLevelEnum.EINSTEIGER,
+      createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
+      createdBy: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
+      qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${newCustomerId}`,
+      documents: [],
+      trainingProgress: [
+        { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
+        { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
+      ],
+    };
+
+    const newUserId = `user-kunde-${newCustomerId}`;
+    const newCustomerUser: User = {
+      id: newUserId,
+      avatarInitials: initials,
+      avatarColor: randomColor,
+      firstName: customerData.firstName,
+      lastName: customerData.lastName,
+      email: customerData.email,
+      password: 'kunde123', // Default password
+      role: UserRoleEnum.KUNDE,
+      createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
+      associatedCustomerId: newCustomerId,
+    };
+
+    setCustomers(prev => [...prev, newCustomer]);
+    setUsers(prev => [...prev, newCustomerUser]);
   };
 
   // User management functions
@@ -569,7 +630,7 @@ const App: React.FC = () => {
                 // Admin has full access
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
-                  <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
+                  <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} onAddCustomer={handleAddCustomer} />} />
                   <Route
                     path="/customers/:id"
                     element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />}
@@ -582,7 +643,7 @@ const App: React.FC = () => {
                 // Mitarbeiter has restricted access
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
-                  <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
+                  <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} onAddCustomer={handleAddCustomer} />} />
                   <Route
                     path="/customers/:id"
                     element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />}

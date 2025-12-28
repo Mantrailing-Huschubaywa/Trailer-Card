@@ -1,20 +1,21 @@
-
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
 import Table, { Column } from '../components/Table';
 import Button from '../components/Button';
 import Avatar from '../components/Avatar';
+import CustomerFormModal from '../components/CustomerFormModal';
 import { PlusIcon, ChevronRightIcon, UsersIcon, HeartIcon, ClipboardIcon, RepeatIcon, UserPlusIcon } from '../components/Icons';
-import { ALPHABET, REFERENCE_DATE } from '../constants'; // Only ALPHABET and REFERENCE_DATE remain in constants
-import { Customer, CustomerTableData, TrainingLevelEnum, Transaction, User, UserRoleEnum } from '../types'; // Import types
+import { ALPHABET, REFERENCE_DATE } from '../constants';
+import { Customer, CustomerTableData, TrainingLevelEnum, Transaction, User, UserRoleEnum, NewCustomerData } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { parseDateString, isSameMonth } from '../utils';
 
 interface CustomerManagementProps {
   customers: Customer[];
   transactions: Transaction[];
-  currentUser: User; // Added currentUser prop
+  currentUser: User;
+  onAddCustomer: (customerData: NewCustomerData) => void;
 }
 
 // Helper function to get color classes based on training level for the badge
@@ -54,9 +55,10 @@ const getAvatarColorForLevel = (level: TrainingLevelEnum) => {
 };
 
 
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, transactions, currentUser }) => {
+const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, transactions, currentUser, onAddCustomer }) => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<string>('Alle');
+  const [showCustomerFormModal, setShowCustomerFormModal] = useState(false);
 
   // Dynamic calculations for Customer Management Stats
   const totalCustomers = customers.length;
@@ -142,6 +144,15 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
   const handleRowClick = (customerData: CustomerTableData) => {
     navigate(`/customers/${customerData.id}`);
   };
+  
+  const handleOpenAddCustomerModal = () => {
+    setShowCustomerFormModal(true);
+  };
+  
+  const handleSubmitCustomerForm = (customerData: NewCustomerData) => {
+    onAddCustomer(customerData);
+    setShowCustomerFormModal(false);
+  };
 
   const canCreateCustomer = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
 
@@ -153,7 +164,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
           <p className="text-gray-600">Verwalten Sie alle Ihre Kunden an einem Ort</p>
         </div>
         {canCreateCustomer && (
-          <Button variant="success" icon={UserPlusIcon}>
+          <Button variant="success" icon={UserPlusIcon} onClick={handleOpenAddCustomerModal}>
             Neuer Kunde
           </Button>
         )}
@@ -216,6 +227,12 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Kundenliste ({filteredCustomers.length})</h2>
         <Table data={customerTableData} columns={columns} onRowClick={handleRowClick} />
       </Card>
+      
+      <CustomerFormModal
+        isOpen={showCustomerFormModal}
+        onClose={() => setShowCustomerFormModal(false)}
+        onSubmit={handleSubmitCustomerForm}
+      />
     </div>
   );
 };

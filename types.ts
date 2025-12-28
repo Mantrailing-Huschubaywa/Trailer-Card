@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 
@@ -21,6 +20,8 @@ export interface Customer {
   documents: Document[];
   trainingProgress: TrainingSection[];
 }
+
+export type NewCustomerData = Omit<Customer, 'id' | 'avatarInitials' | 'avatarColor' | 'balance' | 'totalTransactions' | 'level' | 'createdAt' | 'createdBy' | 'qrCodeData' | 'documents' | 'trainingProgress'>;
 
 export interface Transaction {
   id: string;
