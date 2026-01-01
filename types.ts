@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 
@@ -20,6 +19,16 @@ export interface Customer {
   qrCodeData: string; // URL for QR code image
   documents: Document[];
   trainingProgress: TrainingSection[];
+}
+
+// New type for the customer editing form
+export interface NewCustomerData {
+  firstName: string;
+  lastName: string;
+  email: string; // Will be read-only in the form
+  phone: string;
+  dogName: string;
+  chipNumber: string;
 }
 
 export interface Transaction {

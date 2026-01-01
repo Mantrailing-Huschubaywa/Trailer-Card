@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import Input from './Input';
-import Select from './Select';
 import { User, UserRoleEnum } from '../types';
 
 interface UserFormModalProps {
@@ -17,33 +15,30 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // New state for password
-  const [role, setRole] = useState<UserRoleEnum>(UserRoleEnum.MITARBEITER);
+  const [password, setPassword] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState(''); // New state for password error
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     if (userToEdit) {
       setFirstName(userToEdit.firstName);
       setLastName(userToEdit.lastName);
       setEmail(userToEdit.email);
-      setRole(userToEdit.role);
-      setPassword(''); // Clear password field when editing for security, user can set new one
+      setPassword(''); // Clear password field when editing for security
     } else {
       // Reset form for new user
       setFirstName('');
       setLastName('');
       setEmail('');
-      setPassword(''); // Clear password field for new user
-      setRole(UserRoleEnum.MITARBEITER);
+      setPassword('');
     }
     setFirstNameError('');
     setLastNameError('');
     setEmailError('');
-    setPasswordError(''); // Clear password error
-  }, [userToEdit, isOpen]); // Reset when modal opens or userToEdit changes
+    setPasswordError('');
+  }, [userToEdit, isOpen]);
 
   const validateForm = () => {
     let isValid = true;
@@ -64,21 +59,20 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
     if (!email.trim()) {
       setEmailError('E-Mail ist erforderlich.');
       isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) { // Basic email format validation
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
       setEmailError('Ungültiges E-Mail-Format.');
       isValid = false;
     } else {
       setEmailError('');
     }
 
-    if (!userToEdit && !password.trim()) { // Password is required only for new users
+    if (!userToEdit && !password.trim()) {
       setPasswordError('Passwort ist erforderlich.');
       isValid = false;
-    } else if (userToEdit && password.trim() && password.length < 6) { // If editing and password is provided, validate length
+    } else if (password.trim() && password.length < 6) {
       setPasswordError('Passwort muss mindestens 6 Zeichen lang sein.');
       isValid = false;
-    }
-    else {
+    } else {
       setPasswordError('');
     }
 
@@ -88,17 +82,20 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit({ firstName, lastName, email, role, password: password.trim() || undefined }); // Pass password if not empty
+      // Role is hardcoded to MITARBEITER as this form is now only for employees.
+      // If editing, the role is preserved from the userToEdit object by the parent.
+      const submittedRole = userToEdit ? userToEdit.role : UserRoleEnum.MITARBEITER;
+      onSubmit({ 
+        firstName, 
+        lastName, 
+        email, 
+        role: submittedRole, 
+        password: password.trim() || undefined 
+      });
     }
   };
 
-  const title = userToEdit ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen';
-
-  const roleOptions = [
-    { value: UserRoleEnum.ADMIN, label: 'Admin' },
-    { value: UserRoleEnum.MITARBEITER, label: 'Mitarbeiter' },
-    { value: UserRoleEnum.KUNDE, label: 'Kunde' }, // Added Kunde role
-  ];
+  const title = userToEdit ? 'Mitarbeiter bearbeiten' : 'Neuen Mitarbeiter erstellen';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} className="max-w-md">
@@ -131,7 +128,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             placeholder="max.mustermann@example.com"
             error={emailError}
           />
-          <Input // New password input field
+          <Input
             id="userPassword"
             label={userToEdit ? "Neues Passwort (optional)" : "Passwort"}
             type="password"
@@ -139,13 +136,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             onChange={(e) => setPassword(e.target.value)}
             placeholder={userToEdit ? "Passwort ändern" : "Passwort festlegen"}
             error={passwordError}
-          />
-          <Select
-            id="userRole"
-            label="Rolle"
-            options={roleOptions}
-            value={role}
-            onChange={(e) => setRole(e.target.value as UserRoleEnum)}
           />
         </div>
         <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">

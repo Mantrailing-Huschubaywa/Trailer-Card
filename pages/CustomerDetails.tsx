@@ -7,6 +7,8 @@ import Input from '../components/Input';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import TransactionConfirmationModal from '../components/TransactionConfirmationModal';
 import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal';
+import CustomerFormModal from '../components/CustomerFormModal';
+import TransactionHistoryModal from '../components/TransactionHistoryModal'; // Import the new modal
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -19,9 +21,11 @@ import {
   ChevronDownIcon,
   EditIcon,
   SaveIcon,
+  ArrowUpCircleIcon,
+  ArrowDownCircleIcon,
 } from '../components/Icons';
 import { CURRENT_EMPLOYEE, REFERENCE_DATE } from '../constants';
-import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum } from '../types';
+import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData } from '../types';
 
 interface TrainingHourCircleProps {
   filled: boolean;
@@ -108,10 +112,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const navigate = useNavigate();
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showTransactionTypeModal, setShowTransactionTypeModal] = useState(false);
+  const [isTransactionHistoryModalOpen, setIsTransactionHistoryModalOpen] = useState(false);
   const [transactionData, setTransactionData] = useState<TransactionConfirmationData | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editableData, setEditableData] = useState({
     phone: '',
     dogName: '',
@@ -159,6 +165,15 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       });
     }
   }, [customer]);
+  
+  // Filter and sort transactions for the current customer
+  const customerTransactions = transactions
+    .filter(t => t.customerId === id)
+    .sort((a, b) => {
+      const dateA = new Date(a.date.split('.').reverse().join('-'));
+      const dateB = new Date(b.date.split('.').reverse().join('-'));
+      return dateB.getTime() - dateA.getTime();
+    });
 
   if (!id) {
     return (
@@ -290,6 +305,13 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsEditMode(false);
   };
 
+  const handleUpdateStammdaten = (data: NewCustomerData) => {
+    if (!customer) return;
+    const updatedCustomer = { ...customer, ...data };
+    onUpdateCustomer(updatedCustomer);
+    setIsEditModalOpen(false);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setEditableData(prev => ({ ...prev, [id]: value }));
@@ -359,7 +381,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           <div className="flex space-x-3">
             {canPerformActions && (
               <>
-                <Button variant="outline">Stammdaten</Button>
+                <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>Stammdaten</Button>
                 <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>Transaktionen</Button>
               </>
             )}
@@ -400,16 +422,19 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto-Übersicht</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Übersicht</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-green-50 p-4 rounded-lg flex flex-col justify-center items-center text-center">
                 <p className="text-sm text-gray-600 mb-1">Aktuelles Guthaben</p>
                 <p className="text-2xl font-bold text-green-700">{customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</p>
               </div>
-              <div className="bg-blue-50 p-4 rounded-lg flex flex-col justify-center items-center text-center">
+              <button
+                onClick={() => setIsTransactionHistoryModalOpen(true)}
+                className="bg-blue-50 p-4 rounded-lg flex flex-col justify-center items-center text-center w-full hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              >
                 <p className="text-sm text-gray-600 mb-1">Transaktionen gesamt</p>
                 <p className="text-2xl font-bold text-blue-700">{customer.totalTransactions}</p>
-              </div>
+              </button>
               <div className={`${levelSummaryColors.bg} p-4 rounded-lg flex flex-col justify-center items-center text-center`}>
                 <p className="text-sm text-gray-600 mb-1">Level</p>
                 <div className="flex items-center mt-2">
@@ -494,14 +519,13 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         </div>
         <div className="lg:col-span-1 space-y-6">
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto-Übersicht</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto</h2>
             <div className="space-y-2 text-gray-700">
-              <div className="flex justify-between"><span>Guthaben</span><span className="font-semibold">{customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span></div>
-              <div className="flex justify-between"><span>Transaktionen</span><span className="font-semibold">{customer.totalTransactions}</span></div>
-              <div className="flex justify-between"><span>Erstellt am</span><span className="font-semibold">{customer.createdAt}</span></div>
-              <div className="flex justify-between"><span>Kunden-ID</span><span className="font-semibold">{customer.id}</span></div>
+              <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{customer.createdAt}</span></div>
+              <div className="flex justify-between"><span>Kunden-ID</span><span className="font-bold">{customer.id}</span></div>
             </div>
           </Card>
+
           <Card className="text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">QR-Code</h2>
             <QRCodeDisplay dataUrl={customer.qrCodeData} className="mb-3" />
@@ -519,6 +543,18 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         isOpen={showTransactionTypeModal}
         onClose={() => setShowTransactionTypeModal(false)}
         onSelectType={handleSelectTransactionType}
+      />
+      <CustomerFormModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSubmit={handleUpdateStammdaten}
+        customerToEdit={customer}
+      />
+      <TransactionHistoryModal
+        isOpen={isTransactionHistoryModalOpen}
+        onClose={() => setIsTransactionHistoryModalOpen(false)}
+        transactions={customerTransactions}
+        customerName={`${customer.firstName} ${customer.lastName}`}
       />
     </div>
   );

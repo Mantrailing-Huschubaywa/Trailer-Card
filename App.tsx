@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -459,6 +458,74 @@ const App: React.FC = () => {
     return false; // Login failed
   };
 
+  const handleRegister = (email: string, password: string): boolean => {
+    // 1. Check if user already exists
+    if (users.some(u => u.email === email)) {
+        alert("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.");
+        return false;
+    }
+
+    // 2. Create new user and customer
+    const now = new Date();
+    const uniqueId = `reg-${now.getTime()}`;
+    const newUserId = `user-${uniqueId}`;
+    const associatedCustomerId = `cust-${uniqueId}`;
+    const initials = (email.split('@')[0].substring(0, 2) || '??').toUpperCase();
+    const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
+    const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+
+    const newUser: User = {
+        id: newUserId,
+        avatarInitials: initials,
+        avatarColor: randomColor,
+        firstName: email.split('@')[0], // Derive from email
+        lastName: '', // Empty by default
+        email: email,
+        password: password,
+        role: UserRoleEnum.KUNDE,
+        createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'), // Use reference date for consistency
+        associatedCustomerId: associatedCustomerId,
+    };
+
+    const newCustomer: Customer = {
+        id: associatedCustomerId,
+        avatarInitials: initials,
+        avatarColor: randomColor,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: email,
+        phone: '',
+        dogName: 'Unbekannt',
+        chipNumber: '',
+        balance: 0.00,
+        totalTransactions: 0,
+        level: TrainingLevelEnum.EINSTEIGER,
+        createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
+        createdBy: 'System (Registrierung)',
+        qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${associatedCustomerId}`,
+        documents: [],
+        trainingProgress: [
+          { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
+          { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+          { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+          { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+          { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
+        ],
+    };
+
+    // 3. Update state
+    setUsers(prevUsers => [...prevUsers, newUser]);
+    setCustomers(prevCustomers => [...prevCustomers, newCustomer]);
+    
+    // 4. Log in the new user automatically
+    setIsLoggedIn(true);
+    setLoggedInUserEmail(newUser.email);
+    navigate(`/customers/${associatedCustomerId}`, { replace: true });
+    
+    return true;
+  };
+
+
   const handleUpdateCustomer = (updatedCustomer: Customer) => {
     setCustomers(prevCustomers =>
       prevCustomers.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
@@ -615,8 +682,8 @@ const App: React.FC = () => {
       ) : (
         // Not logged in
         <Routes>
-          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-          <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
+          <Route path="*" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
         </Routes>
       )}
     </div>

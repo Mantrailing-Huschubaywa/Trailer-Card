@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import Input from '../components/Input';
@@ -6,21 +5,37 @@ import Button from '../components/Button';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => boolean;
+  onRegister: (email: string, password: string) => boolean;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  // Pre-fill with admin credentials for quick access
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [email, setEmail] = useState('admin@pfotencard.de');
   const [password, setPassword] = useState('adminpassword');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [apiError, setApiError] = useState('');
+
+  const resetForm = (switchToRegister: boolean) => {
+    setIsRegisterMode(switchToRegister);
+    setEmail(switchToRegister ? '' : 'admin@pfotencard.de');
+    setPassword(switchToRegister ? '' : 'adminpassword');
+    setConfirmPassword('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setApiError('');
+  };
 
   const validateForm = () => {
     let isValid = true;
     setEmailError('');
     setPasswordError('');
-    setLoginError('');
+    setConfirmPasswordError('');
+    setApiError('');
 
     if (!email.trim()) {
       setEmailError('E-Mail ist erforderlich.');
@@ -33,6 +48,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     if (!password.trim()) {
       setPasswordError('Passwort ist erforderlich.');
       isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Passwort muss mindestens 6 Zeichen lang sein.');
+      isValid = false;
+    }
+
+    if (isRegisterMode) {
+      if (password !== confirmPassword) {
+        setConfirmPasswordError('Die Passwörter stimmen nicht überein.');
+        isValid = false;
+      }
     }
 
     return isValid;
@@ -41,9 +66,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      const success = onLogin(email, password);
-      if (!success) {
-        setLoginError('Ungültige E-Mail oder ungültiges Passwort.');
+      let success = false;
+      if (isRegisterMode) {
+        success = onRegister(email, password);
+        if (!success) {
+          setApiError('Die Registrierung ist fehlgeschlagen. Die E-Mail könnte bereits vergeben sein.');
+        }
+      } else {
+        success = onLogin(email, password);
+        if (!success) {
+          setApiError('Ungültige E-Mail oder ungültiges Passwort.');
+        }
       }
     }
   };
@@ -52,7 +85,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-100 p-4">
       <Card className="max-w-md w-full p-8">
         <h1 className="text-3xl font-bold text-gray-900 text-center mb-6">Mantrailing Card</h1>
-        <p className="text-gray-600 text-center mb-8">Melden Sie sich an, um fortzufahren</p>
+        <p className="text-gray-600 text-center mb-8">
+          {isRegisterMode ? 'Erstellen Sie Ihr neues Kundenkonto' : 'Melden Sie sich an, um fortzufahren'}
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
@@ -73,17 +108,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             placeholder="********"
             error={passwordError}
           />
+          {isRegisterMode && (
+            <Input
+              id="confirmPassword"
+              label="Passwort bestätigen"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="********"
+              error={confirmPasswordError}
+            />
+          )}
 
-          {loginError && (
+          {apiError && (
             <div className="text-red-600 text-sm text-center -mt-4">
-              {loginError}
+              {apiError}
             </div>
           )}
 
           <Button type="submit" variant="primary" className="w-full">
-            Anmelden
+            {isRegisterMode ? 'Registrieren' : 'Anmelden'}
           </Button>
         </form>
+        
+        <div className="text-center mt-6">
+          <button onClick={() => resetForm(!isRegisterMode)} className="text-sm text-blue-600 hover:underline">
+            {isRegisterMode ? 'Bereits ein Konto? Jetzt anmelden' : 'Noch kein Konto? Jetzt registrieren'}
+          </button>
+        </div>
+
       </Card>
     </div>
   );
