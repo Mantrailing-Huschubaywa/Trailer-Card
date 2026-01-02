@@ -4,8 +4,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 
 interface LoginPageProps {
-  onLogin: (email: string, password: string) => boolean;
-  onRegister: (email: string, password: string) => boolean;
+  onLogin: (email: string, password: string) => Promise<boolean>;
+  onRegister: (email: string, password: string) => Promise<boolean>;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
@@ -13,11 +13,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
   const [email, setEmail] = useState('admin@pfotencard.de');
   const [password, setPassword] = useState('adminpassword');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [apiError, setApiError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = (switchToRegister: boolean) => {
     setIsRegisterMode(switchToRegister);
@@ -28,6 +29,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
     setPasswordError('');
     setConfirmPasswordError('');
     setApiError('');
+    setIsSubmitting(false);
   };
 
   const validateForm = () => {
@@ -63,21 +65,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setApiError('');
+
+    try {
       let success = false;
+
       if (isRegisterMode) {
-        success = onRegister(email, password);
+        success = await onRegister(email, password);
         if (!success) {
-          setApiError('Die Registrierung ist fehlgeschlagen. Die E-Mail könnte bereits vergeben sein.');
+          setApiError('Die Registrierung ist fehlgeschlagen. Die E-Mail könnte bereits vergeben sein oder E-Mail-Bestätigung ist aktiv.');
         }
       } else {
-        success = onLogin(email, password);
+        success = await onLogin(email, password);
         if (!success) {
           setApiError('Ungültige E-Mail oder ungültiges Passwort.');
         }
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -126,17 +136,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
             </div>
           )}
 
-          <Button type="submit" variant="primary" className="w-full">
+          <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
             {isRegisterMode ? 'Registrieren' : 'Anmelden'}
           </Button>
         </form>
-        
+
         <div className="text-center mt-6">
-          <button onClick={() => resetForm(!isRegisterMode)} className="text-sm text-blue-600 hover:underline">
+          <button onClick={() => resetForm(!isRegisterMode)} className="text-sm text-blue-600 hover:underline" disabled={isSubmitting}>
             {isRegisterMode ? 'Bereits ein Konto? Jetzt anmelden' : 'Noch kein Konto? Jetzt registrieren'}
           </button>
         </div>
-
       </Card>
     </div>
   );
