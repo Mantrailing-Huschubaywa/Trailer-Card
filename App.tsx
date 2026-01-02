@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -57,6 +57,7 @@ const App: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation(); // Get current location for deep linking
   const supabase = getSupabaseClient();
 
   const toggleMobileSidebar = () => setIsMobileSidebarOpen(prev => !prev);
@@ -81,7 +82,7 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, [supabase, navigate]);
 
-  // Effect 2: Fetches data when the session changes. This separates data logic from auth logic.
+  // Effect 2: Fetches data when the session changes and handles post-login navigation.
   useEffect(() => {
     if (!supabase) return;
 
@@ -146,7 +147,14 @@ const App: React.FC = () => {
     };
 
     if (session) {
-      fetchInitialData(session);
+      fetchInitialData(session).then(() => {
+        // After data is fetched, handle redirect from login for deep linking.
+        if (location.pathname === '/login') {
+            const fromLocation = location.state?.from;
+            const redirectTo = fromLocation ? (fromLocation.pathname + fromLocation.hash + fromLocation.search) : '/';
+            navigate(redirectTo, { replace: true });
+        }
+      });
     } else {
       // Clear all data on logout
       setCurrentUser(null);
@@ -154,9 +162,8 @@ const App: React.FC = () => {
       setTransactions([]);
       setUsers([]);
       setIsLoading(false);
-      navigate('/login');
     }
-  }, [session, supabase, navigate]);
+  }, [session, supabase]);
   
   // Effect 3: Handles navigation for logged-in customers.
   useEffect(() => {
@@ -192,7 +199,6 @@ const App: React.FC = () => {
     const initials = (firstName.substring(0, 2) || '??').toUpperCase();
     const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
     
-    // **FIX**: Encode the target URL to ensure the '#' character is handled correctly by the QR code service.
     const targetUrl = `https://trailer-card.vercel.app/#/customers/${associatedCustomerId}`;
     const encodedTargetUrl = encodeURIComponent(targetUrl);
     
@@ -233,7 +239,6 @@ const App: React.FC = () => {
     // STEP 4: Robust error handling
     if (signUpError || !signUpData.user) {
       console.error("Sign-Up Error:", signUpError || 'Kein Benutzerobjekt zurückgegeben.');
-      // CRITICAL: Attempt to delete the orphaned customer record for data integrity
       const { error: deleteError } = await supabase.from('customers').delete().eq('id', associatedCustomerId);
       if (deleteError) {
         console.error("CRITICAL: Fehler beim Löschen des verwaisten Kunden:", deleteError);
@@ -250,7 +255,6 @@ const App: React.FC = () => {
   const handleUpdateCustomer = async (updatedCustomer: Customer) => {
     if (!supabase) return;
   
-    // --- Step 1: Update the 'customers' table ---
     const { dataSource, ...customerToUpdate } = updatedCustomer;
     const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
@@ -259,21 +263,18 @@ const App: React.FC = () => {
   
     if (customerUpdateError) {
       alert(`Fehler beim Speichern der Kundendaten: ${customerUpdateError.message}`);
-      return; // Stop if the primary update fails
+      return;
     }
   
-    // --- Step 2: Update local state for customers ---
     setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
   
-    // --- Step 3: Find and update the associated user profile to ensure data consistency ---
     try {
       const { data: profileData, error: profileFindError } = await supabase
         .from('profiles')
-        .select('id') // We only need the user's UUID for the update
+        .select('id')
         .eq('associatedCustomerId', updatedCustomer.id)
         .single();
   
-      // If a profile exists for this customer, update it.
       if (profileData && !profileFindError) {
         const userId = profileData.id;
         
@@ -288,17 +289,14 @@ const App: React.FC = () => {
         if (profileUpdateError) {
           alert(`Kundendaten wurden gespeichert, aber das zugehörige Benutzerprofil konnte nicht aktualisiert werden: ${profileUpdateError.message}`);
         } else {
-          // --- Step 4: Update local state for users/profile if the DB update was successful ---
           const newAvatarInitials = `${(updatedCustomer.firstName || '?').charAt(0)}${(updatedCustomer.lastName || '?').charAt(0)}`.toUpperCase();
   
-          // Update the main users list (for admins)
           setUsers(prevUsers => prevUsers.map(u => 
             u.id === userId 
               ? { ...u, firstName: updatedCustomer.firstName, lastName: updatedCustomer.lastName, avatarInitials: newAvatarInitials } 
               : u
           ));
   
-          // Update the currently logged-in user's state if they were the one being edited
           if (currentUser && currentUser.id === userId) {
             setCurrentUser(prev => prev ? {
               ...prev, 
@@ -309,8 +307,6 @@ const App: React.FC = () => {
           }
         }
       } 
-      // 'PGRST116' means 'Exact one row not found', which is expected if a customer has no login.
-      // We only log other, unexpected errors.
       else if (profileFindError && profileFindError.code !== 'PGRST116') {
           console.warn(`Fehler bei der Suche nach dem Benutzerprofil für Kunde ${updatedCustomer.id}: ${profileFindError.message}`);
       }
@@ -326,9 +322,6 @@ const App: React.FC = () => {
     if (error) {
         alert(`Fehler beim Buchen der Transaktion: ${error.message}`);
     } else {
-        // To properly update state, we need a complete transaction object, including created_at
-        // For simplicity, we'll refetch data or just add what we have.
-        // A full solution would get the created transaction back from the DB.
         const completeTransaction = { ...newTransaction, created_at: new Date().toISOString() };
         setTransactions(prev => [...prev, completeTransaction]);
     }
@@ -413,7 +406,7 @@ const App: React.FC = () => {
       ) : (
         <Routes>
           <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
-          <Route path="*" element={<Navigate replace to="/login" />} />
+          <Route path="*" element={<Navigate replace to="/login" state={{ from: location }} />} />
         </Routes>
       )}
     </div>
