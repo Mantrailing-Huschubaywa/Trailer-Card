@@ -676,93 +676,14 @@ const App: React.FC = () => {
     // Falls E-Mail-Bestätigung in Supabase aktiv ist, entsteht ggf. noch keine Session.
     return true;
   };
-
-
-
-  
-  const isUuid = (value: string) => {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-  };
-
-  const persistCustomerToDb = async (customer: Customer) => {
-    if (!currentUser) return;
-    if (!isUuid(customer.id)) return;
-
-    const payload: any = {
-      first_name: customer.firstName ?? '',
-      last_name: customer.lastName ?? '',
-      email: customer.email ?? '',
-      phone: customer.phone ?? '',
-      dog_name: customer.dogName ?? '',
-      chip_number: customer.chipNumber ?? '',
-      balance: Number(customer.balance ?? 0),
-      total_transactions: Number(customer.totalTransactions ?? 0),
-      level: customer.level ?? null,
-      avatar_initials: customer.avatarInitials ?? '',
-      avatar_color: customer.avatarColor ?? '',
-      training_progress: customer.trainingProgress ?? [],
-      qr_code_data: customer.qrCodeData ?? null,
-      documents: customer.documents ?? [],
-      created_by_text: customer.createdBy ?? null
-    };
-
-    await supabase
-      .from('customers')
-      .update(payload)
-      .eq('id', customer.id);
-  };
-
-  const persistTransactionToDb = async (tempId: string, trx: Transaction) => {
-    if (!currentUser) return;
-    if (!isUuid(trx.customerId)) return;
-
-    const employeeUserId =
-      currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER
-        ? currentUser.id
-        : null;
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([
-        {
-          customer_id: trx.customerId,
-          type: trx.type,
-          description: trx.description,
-          amount: Number(trx.amount),
-          employee_user_id: employeeUserId
-        }
-      ])
-      .select('id, created_at')
-      .single();
-
-    if (error || !data) return;
-
-    setTransactions(prev =>
-      prev.map(t =>
-        t.id === tempId
-          ? {
-              ...t,
-              id: data.id,
-              date: new Date(data.created_at).toLocaleDateString('de-DE')
-            }
-          : t
-      )
-    );
-  };
-
   const handleUpdateCustomer = (updatedCustomer: Customer) => {
     setCustomers(prevCustomers =>
       prevCustomers.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
     );
-    // Persist in Supabase (ohne UI-Änderung)
-    persistCustomerToDb(updatedCustomer);
   };
 
   const handleAddTransaction = (newTransaction: Transaction) => {
-    const tempId = newTransaction.id;
     setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
-    // Persist in Supabase und ersetze die temp ID durch die DB-ID
-    persistTransactionToDb(tempId, newTransaction);
   };
 
   // User management functions
@@ -856,8 +777,6 @@ const App: React.FC = () => {
   };
 
 
-
-  return (
 
   return (
     <div className="flex min-h-screen bg-gray-100">
