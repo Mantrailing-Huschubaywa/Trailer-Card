@@ -92,6 +92,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
   return (
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-100 p-4">
       <Card className="max-w-md w-full p-8">
+        <div className="flex justify-center mb-4">
+          <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-24 w-24 rounded-[10px]" />
+        </div>
         <h1 className="text-3xl font-bold text-gray-900 text-center mb-6">Mantrailing Card</h1>
         <p className="text-gray-600 text-center mb-8">
           {isRegisterMode ? 'Erstellen Sie Ihr neues Kundenkonto' : 'Melden Sie sich an, um fortzufahren'}

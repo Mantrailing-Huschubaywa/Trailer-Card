@@ -16,7 +16,7 @@ const paddingClasses = {
 
 const Card: React.FC<CardProps> = ({ children, className = '', padding = 'md' }) => {
   return (
-    <div className={`bg-white rounded-lg shadow ${paddingClasses[padding]} ${className}`}>
+    <div className={`bg-white rounded-lg shadow overflow-hidden ${paddingClasses[padding]} ${className}`}>
       {children}
     </div>
   );

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
@@ -28,6 +29,23 @@ const parseCustomerData = (c: any): Customer => {
   return { ...c, trainingProgress, dataSource: 'db' };
 };
 
+// Mobile Header Component
+const MobileHeader: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSidebar }) => (
+  <header className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between p-3 bg-[#00A1D6] text-white shadow-md h-16">
+    <button onClick={onToggleSidebar} className="p-2" aria-label="Menü öffnen">
+      <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+    <div className="flex items-center">
+      <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-10 w-10 mr-2 rounded-[10px]" />
+      <span className="text-xl font-bold">Mantrailing Card</span>
+    </div>
+    {/* Placeholder to balance the flexbox layout */}
+    <div className="w-10"></div>
+  </header>
+);
+
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -36,9 +54,13 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]); // For UserManagement page (staff)
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const navigate = useNavigate();
   const supabase = getSupabaseClient();
+
+  const toggleMobileSidebar = () => setIsMobileSidebarOpen(prev => !prev);
+  const closeMobileSidebar = () => setIsMobileSidebarOpen(false);
 
   // Effect 1: Manages the session from Supabase auth. This is the single source of truth for auth state.
   useEffect(() => {
@@ -231,15 +253,74 @@ const App: React.FC = () => {
 
   const handleUpdateCustomer = async (updatedCustomer: Customer) => {
     if (!supabase) return;
+  
+    // --- Step 1: Update the 'customers' table ---
     const { dataSource, ...customerToUpdate } = updatedCustomer;
-    const { error } = await supabase.from('customers').update({
+    const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
       trainingProgress: JSON.stringify(customerToUpdate.trainingProgress)
     }).eq('id', updatedCustomer.id);
-    if (error) {
-        alert(`Fehler beim Speichern der Kundendaten: ${error.message}`);
-    } else {
-        setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
+  
+    if (customerUpdateError) {
+      alert(`Fehler beim Speichern der Kundendaten: ${customerUpdateError.message}`);
+      return; // Stop if the primary update fails
+    }
+  
+    // --- Step 2: Update local state for customers ---
+    setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
+  
+    // --- Step 3: Find and update the associated user profile to ensure data consistency ---
+    try {
+      const { data: profileData, error: profileFindError } = await supabase
+        .from('profiles')
+        .select('id') // We only need the user's UUID for the update
+        .eq('associatedCustomerId', updatedCustomer.id)
+        .single();
+  
+      // If a profile exists for this customer, update it.
+      if (profileData && !profileFindError) {
+        const userId = profileData.id;
+        
+        const { error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({
+            firstName: updatedCustomer.firstName,
+            lastName: updatedCustomer.lastName,
+          })
+          .eq('id', userId);
+  
+        if (profileUpdateError) {
+          alert(`Kundendaten wurden gespeichert, aber das zugehörige Benutzerprofil konnte nicht aktualisiert werden: ${profileUpdateError.message}`);
+        } else {
+          // --- Step 4: Update local state for users/profile if the DB update was successful ---
+          const newAvatarInitials = `${(updatedCustomer.firstName || '?').charAt(0)}${(updatedCustomer.lastName || '?').charAt(0)}`.toUpperCase();
+  
+          // Update the main users list (for admins)
+          setUsers(prevUsers => prevUsers.map(u => 
+            u.id === userId 
+              ? { ...u, firstName: updatedCustomer.firstName, lastName: updatedCustomer.lastName, avatarInitials: newAvatarInitials } 
+              : u
+          ));
+  
+          // Update the currently logged-in user's state if they were the one being edited
+          if (currentUser && currentUser.id === userId) {
+            setCurrentUser(prev => prev ? {
+              ...prev, 
+              firstName: updatedCustomer.firstName, 
+              lastName: updatedCustomer.lastName,
+              avatarInitials: newAvatarInitials,
+            } : null);
+          }
+        }
+      } 
+      // 'PGRST116' means 'Exact one row not found', which is expected if a customer has no login.
+      // We only log other, unexpected errors.
+      else if (profileFindError && profileFindError.code !== 'PGRST116') {
+          console.warn(`Fehler bei der Suche nach dem Benutzerprofil für Kunde ${updatedCustomer.id}: ${profileFindError.message}`);
+      }
+  
+    } catch (e) {
+      console.error("Ein unerwarteter Fehler ist beim Aktualisieren des Profils aufgetreten.", e);
     }
   };
 
@@ -296,8 +377,15 @@ const App: React.FC = () => {
     <div className="flex min-h-screen bg-gray-100">
       {session && currentUser ? (
         <>
-          <Sidebar appName="Mantrailing Card" currentUser={currentUser} onLogout={handleLogout} />
-          <main className="flex-1 md:ml-64 p-0">
+          <MobileHeader onToggleSidebar={toggleMobileSidebar} />
+          <Sidebar
+            appName="Mantrailing Card"
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            isOpen={isMobileSidebarOpen}
+            onClose={closeMobileSidebar}
+          />
+          <main className="flex-1 md:ml-64 p-0 pt-16 md:pt-0">
             <Routes>
               {currentUser.role === UserRoleEnum.ADMIN ? (
                 <>

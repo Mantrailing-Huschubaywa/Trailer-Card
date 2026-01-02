@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Card from './Card';
 import { StatCardProps } from '../types';
@@ -12,13 +11,15 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, de
   const iconBgClass = cardTextClass.replace('text-', 'bg-'); // e.g., "bg-green-700"
 
   return (
-    <Card className={`flex-1 min-w-[200px] ${cardBgClass.replace('bg-', 'bg-opacity-')} border ${cardBgClass.replace('bg-', 'border-').replace('-100', '-200')} `}>
-      <div className="flex items-center justify-between">
-        <div className={`p-3 rounded-full ${iconBgClass}`}> {/* Use the stronger iconBgClass */}
-          <Icon className="h-6 w-6 text-white" /> {/* Icon remains white */}
+    <Card className={`${cardBgClass.replace('bg-', 'bg-opacity-')} border ${cardBgClass.replace('bg-', 'border-').replace('-100', '-200')} `}>
+      <div className="grid grid-cols-[auto,1fr] gap-4 items-center">
+        {/* Column 1: Icon (auto width) */}
+        <div className={`p-3 rounded-full ${iconBgClass}`}>
+          <Icon className="h-6 w-6 text-white" />
         </div>
+        {/* Column 2: Text (takes remaining space) */}
         <div className="text-right">
-          <p className="text-sm font-medium text-gray-500">{title}</p>
+          <p className="text-sm font-medium text-gray-500 break-words">{title}</p>
           <p className="text-2xl font-bold text-gray-900">{value}</p>
         </div>
       </div>

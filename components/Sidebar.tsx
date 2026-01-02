@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { NAVIGATION_ITEMS } from '../constants';
 import { LogoutIcon } from './Icons'; // Import LogoutIcon
@@ -8,16 +7,13 @@ import { User, UserRoleEnum } from '../types'; // Import User type and UserRoleE
 
 interface SidebarProps {
   appName: string;
-  currentUser: User | null; // Added currentUser prop
-  onLogout: () => void; // Added onLogout prop
+  currentUser: User | null;
+  onLogout: () => void;
+  isOpen: boolean;    // Controlled from parent
+  onClose: () => void;  // Controlled from parent
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => {
-  const [isOpen, setIsOpen] = useState(false); // For mobile sidebar toggle
-
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
+const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout, isOpen, onClose }) => {
 
   // Filter navigation items based on currentUser role
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
@@ -36,32 +32,11 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={toggleSidebar}
-        className="fixed bottom-4 left-4 z-40 p-3 bg-blue-600 text-white rounded-full shadow-lg md:hidden"
-        aria-label="Toggle navigation"
-      >
-        <svg
-          className="h-6 w-6"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          {isOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
-      </button>
-
       {/* Backdrop for mobile */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-          onClick={toggleSidebar}
+          onClick={onClose}
         ></div>
       )}
 
@@ -70,8 +45,9 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
         className={`fixed inset-y-0 left-0 w-64 bg-[#00A1D6] text-white flex flex-col z-40 transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
-        <div className="p-6 text-2xl font-bold flex-shrink-0">
-          {appName}
+        <div className="p-6 flex flex-col items-center text-center flex-shrink-0">
+          <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-16 w-16 mb-2 rounded-[10px]" />
+          <span className="text-2xl font-bold text-white">{appName}</span>
         </div>
 
         <nav className="flex-grow p-4 space-y-2">
@@ -83,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout }) => 
                 `flex items-center space-x-3 p-3 rounded-lg transition-colors duration-200 group
                  ${isActive ? 'bg-blue-500 text-white shadow-md' : 'text-white hover:bg-white/10'}`
               }
-              onClick={() => setIsOpen(false)} // Close sidebar on navigation for mobile
+              onClick={onClose} // Close sidebar on navigation for mobile
             >
               <item.icon className="h-6 w-6 text-white group-hover:text-white" />
               <span className="text-lg">{item.label}</span>

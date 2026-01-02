@@ -31,7 +31,7 @@ const Table = <T extends { id: string | number }>({
               <th
                 key={String(column.key)}
                 scope="col"
-                className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.headerClassName || ''}`}
+                className={`px-2 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.headerClassName || ''} ${column.className || ''}`}
               >
                 {column.header}
               </th>
@@ -46,7 +46,7 @@ const Table = <T extends { id: string | number }>({
               onClick={onRowClick ? () => onRowClick(item) : undefined}
             >
               {columns.map((column) => (
-                <td key={String(column.key)} className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${column.className || ''}`}>
+                <td key={String(column.key)} className={`px-2 md:px-6 py-4 text-sm text-gray-900 ${column.className || ''}`}>
                   {column.render ? column.render(item) : (item[column.key] as React.ReactNode)}
                 </td>
               ))}

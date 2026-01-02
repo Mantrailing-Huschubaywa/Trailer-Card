@@ -1,36 +1,49 @@
-import React, { useState } from 'react';
+
+import React, { useMemo, useState } from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
 import Table, { Column } from '../components/Table';
-import Button from '../components/Button';
 import Avatar from '../components/Avatar';
-import { PlusIcon, ChevronRightIcon, UsersIcon, HeartIcon, ClipboardIcon, RepeatIcon, UserPlusIcon } from '../components/Icons';
-import { ALPHABET, REFERENCE_DATE } from '../constants'; // Only ALPHABET and REFERENCE_DATE remain in constants
-import { Customer, CustomerTableData, TrainingLevelEnum, Transaction, User, UserRoleEnum } from '../types'; // Import types
+import {
+  ChevronRightIcon,
+  UsersIcon,
+  HeartIcon,
+  ClipboardIcon,
+  RepeatIcon,
+} from '../components/Icons';
+import { ALPHABET, REFERENCE_DATE } from '../constants';
+import {
+  Customer,
+  CustomerTableData,
+  TrainingLevelEnum,
+  Transaction,
+  User,
+  UserRoleEnum,
+} from '../types';
 import { useNavigate } from 'react-router-dom';
 import { parseDateString, isSameMonth } from '../utils';
 
 interface CustomerManagementProps {
   customers: Customer[];
   transactions: Transaction[];
-  currentUser: User; // Added currentUser prop
+  currentUser: User;
 }
 
 // Helper function to get color classes based on training level for the badge
 const getLevelColorClass = (level: TrainingLevelEnum) => {
   switch (level) {
     case TrainingLevelEnum.EINSTEIGER:
-      return 'bg-fuchsia-100 text-fuchsia-800'; // Orchid
+      return 'bg-fuchsia-100 text-fuchsia-800';
     case TrainingLevelEnum.GRUNDLAGEN:
-      return 'bg-lime-100 text-lime-800'; // Lime Green
+      return 'bg-lime-100 text-lime-800';
     case TrainingLevelEnum.FORTGESCHRITTENE:
-      return 'bg-sky-100 text-sky-800'; // Sky Blue
+      return 'bg-sky-100 text-sky-800';
     case TrainingLevelEnum.MASTERCLASS:
-      return 'bg-amber-100 text-amber-800'; // Peru
+      return 'bg-amber-100 text-amber-800';
     case TrainingLevelEnum.EXPERT:
-      return 'bg-indigo-100 text-indigo-800'; // Indigo
+      return 'bg-indigo-100 text-indigo-800';
     default:
-      return 'bg-gray-100 text-gray-800'; // Default
+      return 'bg-gray-100 text-gray-800';
   }
 };
 
@@ -38,30 +51,38 @@ const getLevelColorClass = (level: TrainingLevelEnum) => {
 const getAvatarColorForLevel = (level: TrainingLevelEnum) => {
   switch (level) {
     case TrainingLevelEnum.EINSTEIGER:
-      return 'bg-fuchsia-500'; // Orchid (500-level for stronger color on avatar)
+      return 'bg-fuchsia-500';
     case TrainingLevelEnum.GRUNDLAGEN:
-      return 'bg-lime-500'; // Lime Green
+      return 'bg-lime-500';
     case TrainingLevelEnum.FORTGESCHRITTENE:
-      return 'bg-sky-500'; // Sky Blue
+      return 'bg-sky-500';
     case TrainingLevelEnum.MASTERCLASS:
-      return 'bg-amber-500'; // Peru
+      return 'bg-amber-500';
     case TrainingLevelEnum.EXPERT:
-      return 'bg-indigo-500'; // Indigo
+      return 'bg-indigo-500';
     default:
-      return 'bg-gray-400'; // Default (a neutral grey)
+      return 'bg-gray-400';
   }
 };
 
 const DatabaseIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 ml-2" viewBox="0 0 20 20" fill="currentColor">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-4 w-4 text-blue-500 ml-2"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
     <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
     <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
     <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
   </svg>
 );
 
-
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, transactions, currentUser }) => {
+const CustomerManagement: React.FC<CustomerManagementProps> = ({
+  customers,
+  transactions,
+  currentUser,
+}) => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<string>('Alle');
 
@@ -69,82 +90,97 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
   const totalBalance = customers.reduce((sum, c) => sum + c.balance, 0);
 
   const today = REFERENCE_DATE;
-  const currentMonthTransactions = transactions.filter(t => {
-    const transactionDate = parseDateString(t.date);
-    return transactionDate && isSameMonth(transactionDate, today);
-  });
+  const currentMonthTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const transactionDate = parseDateString(t.date);
+      return transactionDate && isSameMonth(transactionDate, today);
+    });
+  }, [transactions, today]);
+
   const monthlyTransactionsCount = currentMonthTransactions.length;
 
-  const activeCustomerIds = new Set(
-    currentMonthTransactions.map(t => t.customerId)
-  );
-  const activeCustomersCount = customers.filter(c => activeCustomerIds.has(c.id)).length;
+  const activeCustomerIds = useMemo(() => {
+    return new Set(currentMonthTransactions.map((t) => t.customerId));
+  }, [currentMonthTransactions]);
 
-  const filteredCustomers = customers.filter((customer) => {
-    if (activeFilter === 'Alle') return true;
-    return customer.lastName.startsWith(activeFilter);
-  });
+  const activeCustomersCount = customers.filter((c) => activeCustomerIds.has(c.id)).length;
 
-  const customerTableData: CustomerTableData[] = filteredCustomers.map((customer) => ({
-    id: customer.id,
-    avatarInitials: customer.avatarInitials,
-    avatarColor: customer.avatarColor,
-    name: `${customer.firstName} ${customer.lastName}\n${customer.id}`,
-    dog: customer.dogName,
-    balance: customer.balance,
-    level: customer.level,
-    created_at: customer.created_at,
-    dataSource: customer.dataSource, // Pass dataSource to table data
-  }));
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((customer) => {
+      if (activeFilter === 'Alle') return true;
+      return customer.lastName.startsWith(activeFilter);
+    });
+  }, [customers, activeFilter]);
+
+  const customerTableData: CustomerTableData[] = useMemo(() => {
+    return filteredCustomers.map((customer) => ({
+      id: customer.id,
+      avatarInitials: customer.avatarInitials,
+      avatarColor: customer.avatarColor,
+      name: `${customer.firstName} ${customer.lastName}\n${customer.id}`,
+      dog: customer.dogName,
+      balance: customer.balance,
+      level: customer.level,
+      created_at: customer.created_at,
+      dataSource: customer.dataSource,
+    }));
+  }, [filteredCustomers]);
 
   const columns: Column<CustomerTableData>[] = [
     {
       key: 'name',
       header: 'Kunde',
       render: (item: CustomerTableData) => (
-        <div className="flex items-center">
+        <div className="flex items-center min-w-0">
           <Avatar
             initials={item.avatarInitials}
             color={getAvatarColorForLevel(item.level)}
             size="md"
             className="mr-3"
           />
-          <div>
-            <div className="flex items-center">
-                <p className="font-medium text-gray-900">{item.name.split('\n')[0]}</p>
-                {item.dataSource === 'db' && <DatabaseIcon />}
+          <div className="min-w-0">
+            <div className="flex items-center min-w-0">
+              <p className="font-medium text-gray-900 break-words min-w-0">
+                {item.name.split('\n')[0]}
+              </p>
+              {item.dataSource === 'db' && <DatabaseIcon />}
             </div>
-            <p className="text-sm text-gray-500">{item.name.split('\n')[1]}</p>
+            <p className="text-sm text-gray-500 break-all">{item.name.split('\n')[1]}</p>
           </div>
         </div>
       ),
     },
-    { key: 'dog', header: 'Hund' },
+    { key: 'dog', header: 'Hund', className: 'hidden md:table-cell' },
     {
       key: 'balance',
       header: 'Guthaben',
-      render: (item: CustomerTableData) => item.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+      render: (item: CustomerTableData) =>
+        item.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
     },
     {
       key: 'level',
       header: 'Level',
+      className: 'hidden lg:table-cell',
       render: (item: CustomerTableData) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelColorClass(item.level)}`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelColorClass(
+            item.level
+          )}`}
+        >
           {item.level}
         </span>
       ),
     },
-    { 
-      key: 'created_at', 
+    {
+      key: 'created_at',
       header: 'Erstellt',
-      render: (item: CustomerTableData) => new Date(item.created_at).toLocaleDateString('de-DE') 
+      className: 'hidden lg:table-cell',
+      render: (item: CustomerTableData) => new Date(item.created_at).toLocaleDateString('de-DE'),
     },
     {
       key: 'id',
       header: '',
-      render: (item: CustomerTableData) => (
-        <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-      ),
+      render: () => <ChevronRightIcon className="h-5 w-5 text-gray-400" />,
       className: 'text-right',
     },
   ];
@@ -153,7 +189,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
     navigate(`/customers/${customerData.id}`);
   };
 
-  const canCreateCustomer = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
+  const canCreateCustomer =
+    currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
@@ -165,18 +202,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
-        <StatCard
-          title="Kunden Gesamt"
-          value={totalCustomers}
-          icon={UsersIcon}
-          color="bg-green-100 text-green-700"
-        />
-        <StatCard
-          title="Aktiv"
-          value={activeCustomersCount}
-          icon={HeartIcon}
-          color="bg-orange-100 text-orange-700"
-        />
+        <StatCard title="Kunden Gesamt" value={totalCustomers} icon={UsersIcon} color="bg-green-100 text-green-700" />
+        <StatCard title="Aktiv" value={activeCustomersCount} icon={HeartIcon} color="bg-orange-100 text-orange-700" />
         <StatCard
           title="Guthaben"
           value={totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
@@ -192,7 +219,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
       </div>
 
       <Card className="mb-6 px-4 py-2">
-        <div className="flex flex-wrap justify-between gap-2">
+        <div className="flex flex-wrap justify-center gap-2 w-full">
           <button
             onClick={() => setActiveFilter('Alle')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
@@ -214,8 +241,74 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
       </Card>
 
       <Card>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Kundenliste ({filteredCustomers.length})</h2>
-        <Table data={customerTableData} columns={columns} onRowClick={handleRowClick} />
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Kundenliste ({filteredCustomers.length})
+        </h2>
+
+        {/* Mobile: Card List (like Reports); Desktop: Table */}
+        <div className="block md:hidden">
+          <div className="space-y-3">
+            {customerTableData.length === 0 ? (
+              <p className="text-gray-500">Keine Kunden gefunden.</p>
+            ) : (
+              customerTableData.map((c) => {
+                const [fullName, customerId] = c.name.split('\n');
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleRowClick(c)}
+                    className="w-full text-left"
+                  >
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center min-w-0">
+                          <Avatar
+                            initials={c.avatarInitials}
+                            color={getAvatarColorForLevel(c.level)}
+                            size="md"
+                            className="mr-3"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center min-w-0">
+                              <p className="font-medium text-gray-900 break-words min-w-0">{fullName}</p>
+                              {c.dataSource === 'db' && <DatabaseIcon />}
+                            </div>
+                            <p className="text-sm text-gray-500 break-all">{customerId}</p>
+                            {c.dog && <p className="text-sm text-gray-600 mt-1">{c.dog}</p>}
+                          </div>
+                        </div>
+
+                        <ChevronRightIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-1" />
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <p className="font-semibold text-gray-900">
+                          {c.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelColorClass(
+                            c.level
+                          )}`}
+                        >
+                          {c.level}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-2">
+                        Erstellt am {new Date(c.created_at).toLocaleDateString('de-DE')}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="hidden md:block">
+          <Table data={customerTableData} columns={columns} onRowClick={handleRowClick} />
+        </div>
       </Card>
     </div>
   );
