@@ -183,70 +183,66 @@ const App: React.FC = () => {
   const handleRegister = async (email: string, password: string): Promise<string | null> => {
     if (!supabase) return "Supabase Client nicht initialisiert.";
 
-    // STEP 1: Define all customer data first.
-    // New, shorter customer ID generation
+    // STEP 1: Define customer data
     const idPrefix = (email.split('@')[0] || 'KUNDE').substring(0, 4).toUpperCase();
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const associatedCustomerId = `${idPrefix}-${randomSuffix}`;
-    
     const firstName = email.split('@')[0] || 'Neuer';
     const lastName = '(Kunde)';
     const initials = (firstName.substring(0, 2) || '??').toUpperCase();
     const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
-
-    const newCustomer = {
+    
+    // **FIX**: Encode the target URL to ensure the '#' character is handled correctly by the QR code service.
+    const targetUrl = `https://trailer-card.vercel.app/#/customers/${associatedCustomerId}`;
+    const encodedTargetUrl = encodeURIComponent(targetUrl);
+    
+    const newCustomerData = {
       id: associatedCustomerId,
       avatarInitials: initials,
       avatarColor: avatarColors[Math.floor(Math.random() * avatarColors.length)],
       firstName, lastName, email, phone: '', dogName: '', chipNumber: '',
       balance: 0, totalTransactions: 0, level: TrainingLevelEnum.EINSTEIGER,
-      // 'created_at' is removed. The database will set this automatically.
-      createdBy: 'Registrierung', // This is crucial for the RLS policy
-      qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${associatedCustomerId}`,
+      createdBy: 'Registrierung',
+      qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedTargetUrl}`,
       documents: [],
-      trainingProgress: [
+      trainingProgress: JSON.stringify([
         { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
         { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
         { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
         { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
         { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-      ],
+      ]),
     };
 
-    // STEP 2: Create the customer record BEFORE creating the user.
-    const { error: customerInsertError } = await supabase.from('customers').insert([{
-      ...newCustomer,
-      trainingProgress: JSON.stringify(newCustomer.trainingProgress)
-    }]);
-
+    // STEP 2: Create customer record
+    const { error: customerInsertError } = await supabase.from('customers').insert([newCustomerData]);
     if (customerInsertError) {
-      console.error("Customer Insert Error (Step 1):", customerInsertError);
+      console.error("Customer Insert Error:", customerInsertError);
       return `Fehler beim Erstellen des Kundenprofils: ${customerInsertError.message}`;
     }
 
-    // STEP 3: Now that the customer exists, create the auth user.
-    // The trigger will now find the customer and the foreign key constraint will be satisfied.
-    const { error: signUpError } = await supabase.auth.signUp({
+    // STEP 3: Create auth user
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          firstName,
-          lastName,
-          role: UserRoleEnum.KUNDE,
-          associatedCustomerId // Pass the now-existing customer ID
-        }
+        data: { firstName, lastName, role: UserRoleEnum.KUNDE, associatedCustomerId }
       }
     });
 
-    if (signUpError) {
-      console.error("Sign-Up Error (Step 2):", signUpError);
-      // In a production app, you might want to delete the orphaned customer record created in step 2.
-      // This requires admin privileges and is complex to handle from the client.
-      return `Registrierungsfehler: ${signUpError.message}. Bitte kontaktieren Sie den Support.`;
+    // STEP 4: Robust error handling
+    if (signUpError || !signUpData.user) {
+      console.error("Sign-Up Error:", signUpError || 'Kein Benutzerobjekt zurückgegeben.');
+      // CRITICAL: Attempt to delete the orphaned customer record for data integrity
+      const { error: deleteError } = await supabase.from('customers').delete().eq('id', associatedCustomerId);
+      if (deleteError) {
+        console.error("CRITICAL: Fehler beim Löschen des verwaisten Kunden:", deleteError);
+        return `Registrierung fehlgeschlagen und verwaister Kunde konnte nicht entfernt werden. Bitte kontaktieren Sie den Support. Fehler: ${signUpError?.message || 'Unbekannt'}`;
+      }
+      return `Registrierungsfehler: ${signUpError?.message || 'Benutzer konnte nicht erstellt werden.'}.`;
     }
 
-    // onAuthStateChange will handle the login and data refresh.
+    // Success
     return null;
   };
 
