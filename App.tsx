@@ -424,6 +424,112 @@ const App: React.FC = () => {
       return UserRoleEnum.KUNDE;
     };
 
+
+    const buildEmployeeName = (employeeProfile: any): string => {
+      if (!employeeProfile) return '';
+      const fn = (employeeProfile.first_name || '').toString().trim();
+      const ln = (employeeProfile.last_name || '').toString().trim();
+      const name = `${fn} ${ln}`.trim();
+      if (name) return name;
+      const email = (employeeProfile.email || '').toString().trim();
+      return email || '';
+    };
+
+    const mapCustomerRowToCustomer = (row: any): Customer => {
+      return {
+        id: row.id,
+        avatarInitials: row.avatar_initials || '??',
+        avatarColor: row.avatar_color || 'bg-green-500',
+        firstName: row.first_name || '',
+        lastName: row.last_name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        dogName: row.dog_name || 'Unbekannt',
+        chipNumber: row.chip_number || '',
+        balance: Number(row.balance || 0),
+        totalTransactions: Number(row.total_transactions || 0),
+        level: (row.level as TrainingLevelEnum) || TrainingLevelEnum.EINSTEIGER,
+        createdAt: row.created_at ? new Date(row.created_at).toLocaleDateString('de-DE') : '',
+        createdBy: row.created_by_text || '',
+        qrCodeData:
+          row.qr_code_data ||
+          `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${row.id}`,
+        documents: Array.isArray(row.documents) ? row.documents : [],
+        trainingProgress: Array.isArray(row.training_progress) ? row.training_progress : []
+      };
+    };
+
+    const mapTransactionRowToTransaction = (row: any): Transaction => {
+      return {
+        id: row.id,
+        customerId: row.customer_id,
+        type: row.type,
+        description: row.description || '',
+        amount: Number(row.amount || 0),
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString('de-DE') : '',
+        employee: buildEmployeeName(row.employee_user)
+      };
+    };
+
+    const loadDataForRole = async (user: User) => {
+      if (user.role === UserRoleEnum.KUNDE) {
+        const { data: customerRow, error: customerError } = await supabase
+          .from('customers')
+          .select(
+            'id,owner_user_id,first_name,last_name,email,phone,dog_name,chip_number,balance,total_transactions,level,avatar_initials,avatar_color,training_progress,created_at,created_by_text,qr_code_data,documents'
+          )
+          .eq('owner_user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (customerError || !customerRow) {
+          setCustomers([]);
+          setTransactions([]);
+          return;
+        }
+
+        setCustomers([mapCustomerRowToCustomer(customerRow)]);
+
+        const { data: trxRows } = await supabase
+          .from('transactions')
+          .select(
+            'id,customer_id,type,description,amount,created_at,employee_user:profiles(first_name,last_name,email)'
+          )
+          .eq('customer_id', customerRow.id)
+          .order('created_at', { ascending: false });
+
+        setTransactions((trxRows || []).map(mapTransactionRowToTransaction));
+        return;
+      }
+
+      // ADMIN oder MITARBEITER: alle Kunden und alle Transaktionen laden
+      const { data: customerRows, error: customersError } = await supabase
+        .from('customers')
+        .select(
+          'id,owner_user_id,first_name,last_name,email,phone,dog_name,chip_number,balance,total_transactions,level,avatar_initials,avatar_color,training_progress,created_at,created_by_text,qr_code_data,documents'
+        )
+        .order('created_at', { ascending: false });
+
+      if (customersError) {
+        setCustomers([]);
+      } else {
+        setCustomers((customerRows || []).map(mapCustomerRowToCustomer));
+      }
+
+      const { data: trxRows, error: trxError } = await supabase
+        .from('transactions')
+        .select(
+          'id,customer_id,type,description,amount,created_at,employee_user:profiles(first_name,last_name,email)'
+        )
+        .order('created_at', { ascending: false });
+
+      if (trxError) {
+        setTransactions([]);
+      } else {
+        setTransactions((trxRows || []).map(mapTransactionRowToTransaction));
+      }
+    };
+
     const loadUser = async (userId: string) => {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -486,6 +592,7 @@ const App: React.FC = () => {
       if (user) {
         setIsLoggedIn(true);
         setCurrentUser(user);
+        await loadDataForRole(user);
       } else {
         setIsLoggedIn(false);
         setCurrentUser(null);
@@ -509,6 +616,7 @@ const App: React.FC = () => {
       if (user) {
         setIsLoggedIn(true);
         setCurrentUser(user);
+        await loadDataForRole(user);
       } else {
         setIsLoggedIn(false);
         setCurrentUser(null);
