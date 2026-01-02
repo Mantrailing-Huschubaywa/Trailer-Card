@@ -6,9 +6,10 @@ import Button from '../components/Button';
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
   onRegister: (email: string, password: string) => Promise<boolean>;
+  externalError?: string;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, externalError }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [email, setEmail] = useState('admin@pfotencard.de');
   const [password, setPassword] = useState('adminpassword');
@@ -120,9 +121,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
             />
           )}
 
-          {apiError && (
+          {(externalError || apiError) && (
             <div className="text-red-600 text-sm text-center -mt-4">
-              {apiError}
+              {externalError || apiError}
             </div>
           )}
 

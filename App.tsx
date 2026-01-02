@@ -412,6 +412,7 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_MOCK_TRANSACTIONS);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Login-Status (Supabase)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string>('');
   const navigate = useNavigate();
 
   // Supabase Session initialisieren und aktuellen Benutzer laden
@@ -537,7 +538,13 @@ const App: React.FC = () => {
         .eq('id', userId)
         .single();
 
-      if (profileError || !profile) return null;
+      if (profileError || !profile) {
+        const msg = profileError?.message || 'Profil konnte nicht geladen werden.';
+        setAuthError(`Login-Fehler: ${msg}`);
+        return null;
+      }
+
+      setAuthError('');
 
       const roleEnum = mapDbRoleToEnum(profile.role);
 
@@ -583,6 +590,7 @@ const App: React.FC = () => {
       if (!session?.user?.id) {
         setIsLoggedIn(false);
         setCurrentUser(null);
+        setAuthError('');
         return;
       }
 
@@ -607,6 +615,7 @@ const App: React.FC = () => {
       if (!session?.user?.id) {
         setIsLoggedIn(false);
         setCurrentUser(null);
+        setAuthError('');
         return;
       }
 
@@ -775,9 +784,6 @@ const App: React.FC = () => {
     alert('Sie wurden abgemeldet.');
     navigate('/login', { replace: true });
   };
-
-
-
   return (
     <div className="flex min-h-screen bg-gray-100">
       {isLoggedIn && currentUser ? (
@@ -835,8 +841,8 @@ const App: React.FC = () => {
       ) : (
         // Not logged in
         <Routes>
-          <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
-          <Route path="*" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} externalError={authError} />} />
+          <Route path="*" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} externalError={authError} />} />
         </Routes>
       )}
     </div>
