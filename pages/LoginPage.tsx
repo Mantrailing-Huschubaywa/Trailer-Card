@@ -13,12 +13,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
   const [email, setEmail] = useState('admin@pfotencard.de');
   const [password, setPassword] = useState('adminpassword');
   const [confirmPassword, setConfirmPassword] = useState('');
-
+  
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [apiError, setApiError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = (switchToRegister: boolean) => {
     setIsRegisterMode(switchToRegister);
@@ -29,7 +28,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
     setPasswordError('');
     setConfirmPasswordError('');
     setApiError('');
-    setIsSubmitting(false);
   };
 
   const validateForm = () => {
@@ -67,18 +65,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
-    setApiError('');
-
-    try {
+    if (validateForm()) {
       let success = false;
-
       if (isRegisterMode) {
         success = await onRegister(email, password);
         if (!success) {
-          setApiError('Die Registrierung ist fehlgeschlagen. Die E-Mail könnte bereits vergeben sein oder E-Mail-Bestätigung ist aktiv.');
+          setApiError('Die Registrierung ist fehlgeschlagen. Die E-Mail könnte bereits vergeben sein.');
         }
       } else {
         success = await onLogin(email, password);
@@ -86,8 +78,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
           setApiError('Ungültige E-Mail oder ungültiges Passwort.');
         }
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -136,16 +126,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
             </div>
           )}
 
-          <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" variant="primary" className="w-full">
             {isRegisterMode ? 'Registrieren' : 'Anmelden'}
           </Button>
         </form>
-
+        
         <div className="text-center mt-6">
-          <button onClick={() => resetForm(!isRegisterMode)} className="text-sm text-blue-600 hover:underline" disabled={isSubmitting}>
+          <button onClick={() => resetForm(!isRegisterMode)} className="text-sm text-blue-600 hover:underline">
             {isRegisterMode ? 'Bereits ein Konto? Jetzt anmelden' : 'Noch kein Konto? Jetzt registrieren'}
           </button>
         </div>
+
       </Card>
     </div>
   );
