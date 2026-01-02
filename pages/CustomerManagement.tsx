@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
@@ -53,12 +52,19 @@ const getAvatarColorForLevel = (level: TrainingLevelEnum) => {
   }
 };
 
+const DatabaseIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 ml-2" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
+    <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
+    <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
+  </svg>
+);
+
 
 const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, transactions, currentUser }) => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<string>('Alle');
 
-  // Dynamic calculations for Customer Management Stats
   const totalCustomers = customers.length;
   const totalBalance = customers.reduce((sum, c) => sum + c.balance, 0);
 
@@ -69,29 +75,26 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
   });
   const monthlyTransactionsCount = currentMonthTransactions.length;
 
-  // Determine active customers (those with transactions in the current month)
   const activeCustomerIds = new Set(
     currentMonthTransactions.map(t => t.customerId)
   );
   const activeCustomersCount = customers.filter(c => activeCustomerIds.has(c.id)).length;
 
-
   const filteredCustomers = customers.filter((customer) => {
-    if (activeFilter === 'Alle') {
-      return true;
-    }
+    if (activeFilter === 'Alle') return true;
     return customer.lastName.startsWith(activeFilter);
   });
 
   const customerTableData: CustomerTableData[] = filteredCustomers.map((customer) => ({
     id: customer.id,
     avatarInitials: customer.avatarInitials,
-    avatarColor: customer.avatarColor, // This will be dynamically overridden in render
+    avatarColor: customer.avatarColor,
     name: `${customer.firstName} ${customer.lastName}\n${customer.id}`,
     dog: customer.dogName,
     balance: customer.balance,
     level: customer.level,
-    createdAt: customer.createdAt,
+    created_at: customer.created_at,
+    dataSource: customer.dataSource, // Pass dataSource to table data
   }));
 
   const columns: Column<CustomerTableData>[] = [
@@ -102,12 +105,15 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
         <div className="flex items-center">
           <Avatar
             initials={item.avatarInitials}
-            color={getAvatarColorForLevel(item.level)} // Use level-specific color for avatar
+            color={getAvatarColorForLevel(item.level)}
             size="md"
             className="mr-3"
           />
           <div>
-            <p className="font-medium text-gray-900">{item.name.split('\n')[0]}</p>
+            <div className="flex items-center">
+                <p className="font-medium text-gray-900">{item.name.split('\n')[0]}</p>
+                {item.dataSource === 'db' && <DatabaseIcon />}
+            </div>
             <p className="text-sm text-gray-500">{item.name.split('\n')[1]}</p>
           </div>
         </div>
@@ -128,7 +134,11 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
         </span>
       ),
     },
-    { key: 'createdAt', header: 'Erstellt' },
+    { 
+      key: 'created_at', 
+      header: 'Erstellt',
+      render: (item: CustomerTableData) => new Date(item.created_at).toLocaleDateString('de-DE') 
+    },
     {
       key: 'id',
       header: '',
@@ -152,14 +162,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
           <h1 className="text-3xl font-bold text-gray-900">Kundenverwaltung</h1>
           <p className="text-gray-600">Verwalten Sie alle Ihre Kunden an einem Ort</p>
         </div>
-        {canCreateCustomer && (
-          <Button variant="success" icon={UserPlusIcon}>
-            Neuer Kunde
-          </Button>
-        )}
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
         <StatCard
           title="Kunden Gesamt"
@@ -167,28 +171,26 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
           icon={UsersIcon}
           color="bg-green-100 text-green-700"
         />
-        {/* Corrected variable name from 'activeCustomersInPeriodCount' to 'activeCustomersCount' */}
         <StatCard
           title="Aktiv"
-          value={activeCustomersCount} // Dynamically calculated
+          value={activeCustomersCount}
           icon={HeartIcon}
           color="bg-orange-100 text-orange-700"
         />
         <StatCard
           title="Guthaben"
-          value={totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} // Dynamically calculated
+          value={totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
           icon={ClipboardIcon}
           color="bg-blue-100 text-blue-700"
         />
         <StatCard
           title="Transaktionen Monat"
-          value={monthlyTransactionsCount} // Dynamically calculated
+          value={monthlyTransactionsCount}
           icon={RepeatIcon}
           color="bg-purple-100 text-purple-700"
         />
       </div>
 
-      {/* Alphabet Filter */}
       <Card className="mb-6 px-4 py-2">
         <div className="flex flex-wrap justify-between gap-2">
           <button
@@ -211,7 +213,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, tran
         </div>
       </Card>
 
-      {/* Customer List Table */}
       <Card>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Kundenliste ({filteredCustomers.length})</h2>
         <Table data={customerTableData} columns={columns} onRowClick={handleRowClick} />

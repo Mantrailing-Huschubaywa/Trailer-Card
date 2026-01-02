@@ -1,848 +1,335 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import type { Session } from '@supabase/supabase-js';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import CustomerManagement from './pages/CustomerManagement';
 import CustomerDetails from './pages/CustomerDetails';
 import Reports from './pages/Reports';
-import UserManagement from './pages/UserManagement'; // Import the new UserManagement page
-import LoginPage from './pages/LoginPage'; // Import the new LoginPage
-import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum } from './types'; // Import types
-import { REFERENCE_DATE } from './constants'; // Import constants needed for initial state
-import { supabase } from './supabaseClient';
+import UserManagement from './pages/UserManagement';
+import LoginPage from './pages/LoginPage';
+import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum } from './types';
+import { REFERENCE_DATE } from './constants';
+import { USE_MOCK_DATA } from './config';
+import { getSupabaseClient } from './supabaseClient';
 
-// Initial Mock Data (moved from constants.ts)
-const INITIAL_MOCK_CUSTOMERS: Customer[] = [
-  // --- Existing customers (adjusted for consistency) ---
-  {
-    id: 'cust-anna',
-    avatarInitials: 'AS',
-    avatarColor: 'bg-green-500',
-    firstName: 'Anna-Maria',
-    lastName: 'Schoss',
-    email: 'anna.schoss@email.de',
-    phone: '+49 123 456789',
-    dogName: 'Banu',
-    chipNumber: '987000012345678',
-    balance: 229.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.EINSTEIGER,
-    createdAt: '9.2.2025',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-anna',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-2',
-    avatarInitials: 'SS',
-    avatarColor: 'bg-orange-500',
-    firstName: 'Sabine',
-    lastName: 'Sonne',
-    email: 'sabine.sonne@email.de',
-    phone: '+49 111 222333',
-    dogName: 'Luna',
-    chipNumber: '987000012345680',
-    balance: 25.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.GRUNDLAGEN, // Sabine is already in Grundlagen
-    createdAt: '1.12.2023',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-2',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-3',
-    avatarInitials: 'TT',
-    avatarColor: 'bg-red-500',
-    firstName: 'Tom',
-    lastName: 'Test',
-    email: 'tom.test@email.de',
-    phone: '+49 444 555666',
-    dogName: 'Rocky',
-    chipNumber: '987000012345681',
-    balance: 300.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.EINSTEIGER,
-    createdAt: '10.1.2024',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-3',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-
-  // --- New Test Customers for Level Advancement ---
-
-  {
-    id: 'cust-einsteiger-test',
-    avatarInitials: 'EL',
-    avatarColor: 'bg-fuchsia-500', // Orchid-like color
-    firstName: 'Einsteiger',
-    lastName: 'Lehrling',
-    email: 'einsteiger@pfotencard.de',
-    phone: '+49 101 202303',
-    dogName: 'Newbie',
-    chipNumber: '987000010101010',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.EINSTEIGER,
-    createdAt: '01.12.2025',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-einsteiger-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 5, status: 'Aktuell' }, // 5/6 hours
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-grundlagen-test',
-    avatarInitials: 'GV',
-    avatarColor: 'bg-lime-500', // Lime Green color
-    firstName: 'Grundlagen',
-    lastName: 'Vertiefung',
-    email: 'grundlagen@pfotencard.de',
-    phone: '+49 102 303404',
-    dogName: 'Buddy',
-    chipNumber: '987000010202020',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.GRUNDLAGEN,
-    createdAt: '05.11.2025',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-grundlagen-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 11, status: 'Aktuell' }, // 11/12 hours
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-fortgeschrittene-test',
-    avatarInitials: 'FS',
-    avatarColor: 'bg-sky-500', // Sky Blue color
-    firstName: 'Fortgeschrittene',
-    lastName: 'Studentin',
-    email: 'fortgeschrittene@pfotencard.de',
-    phone: '+49 103 404505',
-    dogName: 'Clever',
-    chipNumber: '987000010303030',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.FORTGESCHRITTENE,
-    createdAt: '10.10.2025',
-    createdBy: 'Sandra Sandra',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-fortgeschrittene-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 11, status: 'Aktuell' }, // 11/12 hours
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-masterclass-test',
-    avatarInitials: 'MT',
-    avatarColor: 'bg-amber-500', // Peru-like color
-    firstName: 'Masterclass',
-    lastName: 'Teilnehmer',
-    email: 'masterclass@pfotencard.de',
-    phone: '+49 104 505606',
-    dogName: 'Champion',
-    chipNumber: '987000010404040',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.MASTERCLASS,
-    createdAt: '15.09.2025',
-    createdBy: 'Sophie Sophie',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-masterclass-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 11, status: 'Aktuell' }, // 11/12 hours
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-    ],
-  },
-  {
-    id: 'cust-expert-milestone-test',
-    avatarInitials: 'EX',
-    avatarColor: 'bg-indigo-500', // Lila color
-    firstName: 'Expert',
-    lastName: 'Meister',
-    email: 'expert.meister@pfotencard.de',
-    phone: '+49 105 606707',
-    dogName: 'Guru',
-    chipNumber: '987000010505050',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.EXPERT,
-    createdAt: '20.08.2025',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-expert-milestone-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 99, status: 'Aktuell' }, // 99/100 hours
-    ],
-  },
-  {
-    id: 'cust-expert-post-milestone-test',
-    avatarInitials: 'EZ',
-    avatarColor: 'bg-gray-500', // Neutral color
-    firstName: 'Expert',
-    lastName: 'Zwischenstand',
-    email: 'expert.zwischenstand@pfotencard.de',
-    phone: '+49 106 707808',
-    dogName: 'Progressor',
-    chipNumber: '987000010606060',
-    balance: 18.00,
-    totalTransactions: 1,
-    level: TrainingLevelEnum.EXPERT,
-    createdAt: '25.07.2025',
-    createdBy: 'Christian Christian',
-    qrCodeData: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/cust-expert-post-milestone-test',
-    documents: [],
-    trainingProgress: [
-      { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 6, status: 'Abgeschlossen' },
-      { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 12, status: 'Abgeschlossen' },
-      { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 101, status: 'Aktuell' }, // 101 hours
-    ],
-  },
-];
-
-const INITIAL_MOCK_TRANSACTIONS: Transaction[] = [
-  // --- Existing transactions (adjusted for new mock customers) ---
-  {
-    id: 'trx-anna-1',
-    customerId: 'cust-anna',
-    type: 'recharge',
-    description: 'Aufladung 215€',
-    amount: 215.00,
-    date: '09.02.2025',
-    employee: 'Christian Christian',
-  },
-  {
-    id: 'trx-anna-2',
-    customerId: 'cust-anna',
-    type: 'debit',
-    description: 'Trails',
-    amount: 30.00, // This transaction is not a 'Trails' for progress
-    date: '15.02.2025',
-    employee: 'Christian Christian',
-  },
-  {
-    id: 'trx-sabine-1',
-    customerId: 'cust-2',
-    type: 'recharge',
-    description: 'Aufladung Mai',
-    amount: 50.00,
-    date: '10.05.2025',
-    employee: 'Christian Christian',
-  },
-  {
-    id: 'trx-tom-1',
-    customerId: 'cust-3',
-    type: 'recharge',
-    description: 'Bonusguthaben',
-    amount: 50.00,
-    date: '20.12.2025',
-    employee: 'Christian Christian',
-  },
-
-  // --- Transactions for New Test Customers ---
-  {
-    id: 'trx-einsteiger-test-1',
-    customerId: 'cust-einsteiger-test',
-    type: 'debit',
-    description: 'Trails',
-    amount: 18.00,
-    date: '01.12.2025',
-    employee: 'Christian Christian',
-  },
-  // Add more transactions for Grundlagen, Fortgeschrittene, Masterclass to reach their current progress
-  // For brevity, these are assumed to exist up to their current completedHours.
-  // The crucial part is that they are one hour away from completion.
-];
-
-const BASE_MOCK_USERS: User[] = [
-  {
-    id: 'user-admin',
-    avatarInitials: 'AD',
-    avatarColor: 'bg-red-500',
-    firstName: 'Admin',
-    lastName: 'User',
-    email: 'admin@pfotencard.de',
-    password: 'adminpassword',
-    role: UserRoleEnum.ADMIN,
-    createdAt: '11.12.2025',
-  },
-  {
-    id: 'user-christian',
-    avatarInitials: 'CC',
-    avatarColor: 'bg-orange-500',
-    firstName: 'Christian',
-    lastName: 'Christian',
-    email: 'christian@pfotencard.de',
-    password: 'password123',
-    role: UserRoleEnum.ADMIN,
-    createdAt: '11.12.2025',
-  },
-  {
-    id: 'user-petra',
-    avatarInitials: 'PM',
-    avatarColor: 'bg-orange-400',
-    firstName: 'Petra',
-    lastName: 'Müller',
-    email: 'petra@pfotencard.de',
-    password: 'password123',
-    role: UserRoleEnum.MITARBEITER,
-    createdAt: '13.12.2025',
-  },
-  {
-    id: 'user-sandra',
-    avatarInitials: 'SS',
-    avatarColor: 'bg-purple-500',
-    firstName: 'Sandra',
-    lastName: 'Schmidt',
-    email: 'sandra@pfotencard.de',
-    password: 'password123',
-    role: UserRoleEnum.MITARBEITER,
-    createdAt: '13.12.2025',
-  },
-  {
-    id: 'user-sophie',
-    avatarInitials: 'SM',
-    avatarColor: 'bg-indigo-500',
-    firstName: 'Sophie',
-    lastName: 'Meier',
-    email: 'sophie@pfotencard.de',
-    password: 'password123',
-    role: UserRoleEnum.MITARBEITER,
-    createdAt: '13.12.2025',
-  },
-  {
-    id: 'user-susi',
-    avatarInitials: 'SH',
-    avatarColor: 'bg-blue-500',
-    firstName: 'Susi',
-    lastName: 'Huber',
-    email: 'susi@pfotencard.de',
-    password: 'password123',
-    role: UserRoleEnum.MITARBEITER,
-    createdAt: '13.12.2025',
-  },
-  // Removed static 'user-anna-kunde' as it will be generated dynamically if not present for cust-anna
-];
-
-// Function to generate customer users based on existing customers
-const generateCustomerUsers = (customers: Customer[], existingUsers: User[]): User[] => {
-  const customerUsers: User[] = [...existingUsers];
-  const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
-
-  customers.forEach(customer => {
-    // Check if a customer user already exists for this customerId
-    const existingCustomerUser = existingUsers.find(
-      u => u.role === UserRoleEnum.KUNDE && u.associatedCustomerId === customer.id
-    );
-
-    if (!existingCustomerUser) {
-      // Create a new user for this customer
-      const newUserId = `user-kunde-${customer.id}`;
-      const initials = `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`.toUpperCase().slice(0, 2);
-      const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
-
-      customerUsers.push({
-        id: newUserId,
-        avatarInitials: initials,
-        avatarColor: randomColor,
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        email: customer.email,
-        password: 'kunde123', // Standard password for mock customer users
-        role: UserRoleEnum.KUNDE,
-        createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
-        associatedCustomerId: customer.id,
-      });
+// Helper function to safely parse customer data from Supabase
+const parseCustomerData = (c: any): Customer => {
+  let trainingProgress = c.trainingProgress;
+  // Supabase returns JSONB columns as strings, so we need to parse them.
+  if (typeof trainingProgress === 'string') {
+    try {
+      trainingProgress = JSON.parse(trainingProgress);
+    } catch (e) {
+      console.error("Fehler beim Parsen von trainingProgress für Kunde:", c.id, e);
+      trainingProgress = []; // Fallback auf ein leeres Array bei einem Fehler
     }
-  });
-  return customerUsers;
+  }
+  return { ...c, trainingProgress, dataSource: 'db' };
 };
 
 
 const App: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_MOCK_CUSTOMERS);
-  // Initialize users by first taking base users, then generating customer users
-  const [users, setUsers] = useState<User[]>(() =>
-    generateCustomerUsers(INITIAL_MOCK_CUSTOMERS, BASE_MOCK_USERS)
-  );
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_MOCK_TRANSACTIONS);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Login-Status (Supabase)
+  const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authError, setAuthError] = useState<string>('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // For UserManagement page (staff)
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   const navigate = useNavigate();
+  const supabase = getSupabaseClient();
 
-  // Supabase Session initialisieren und aktuellen Benutzer laden
+  // Effect 1: Manages the session from Supabase auth. This is the single source of truth for auth state.
   useEffect(() => {
-    let isMounted = true;
+    if (!supabase || USE_MOCK_DATA) {
+      setIsLoading(false);
+      navigate('/login');
+      return;
+    }
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
 
-    const mapDbRoleToEnum = (role: string): UserRoleEnum => {
-      if (role === 'admin') return UserRoleEnum.ADMIN;
-      if (role === 'mitarbeiter') return UserRoleEnum.MITARBEITER;
-      return UserRoleEnum.KUNDE;
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
+    return () => subscription.unsubscribe();
+  }, [supabase, navigate]);
 
-    const buildEmployeeName = (employeeProfile: any): string => {
-      if (!employeeProfile) return '';
-      const fn = (employeeProfile.first_name || '').toString().trim();
-      const ln = (employeeProfile.last_name || '').toString().trim();
-      const name = `${fn} ${ln}`.trim();
-      if (name) return name;
-      const email = (employeeProfile.email || '').toString().trim();
-      return email || '';
-    };
+  // Effect 2: Fetches data when the session changes. This separates data logic from auth logic.
+  useEffect(() => {
+    if (!supabase) return;
 
-    const mapCustomerRowToCustomer = (row: any): Customer => {
-      return {
-        id: row.id,
-        avatarInitials: row.avatar_initials || '??',
-        avatarColor: row.avatar_color || 'bg-green-500',
-        firstName: row.first_name || '',
-        lastName: row.last_name || '',
-        email: row.email || '',
-        phone: row.phone || '',
-        dogName: row.dog_name || 'Unbekannt',
-        chipNumber: row.chip_number || '',
-        balance: Number(row.balance || 0),
-        totalTransactions: Number(row.total_transactions || 0),
-        level: (row.level as TrainingLevelEnum) || TrainingLevelEnum.EINSTEIGER,
-        createdAt: row.created_at ? new Date(row.created_at).toLocaleDateString('de-DE') : '',
-        createdBy: row.created_by_text || '',
-        qrCodeData:
-          row.qr_code_data ||
-          `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${row.id}`,
-        documents: Array.isArray(row.documents) ? row.documents : [],
-        trainingProgress: Array.isArray(row.training_progress) ? row.training_progress : []
-      };
-    };
-
-    const mapTransactionRowToTransaction = (row: any): Transaction => {
-      return {
-        id: row.id,
-        customerId: row.customer_id,
-        type: row.type,
-        description: row.description || '',
-        amount: Number(row.amount || 0),
-        date: row.created_at ? new Date(row.created_at).toLocaleDateString('de-DE') : '',
-        employee: buildEmployeeName(row.employee_user)
-      };
-    };
-
-    const loadDataForRole = async (user: User) => {
-      if (user.role === UserRoleEnum.KUNDE) {
-        const { data: customerRow, error: customerError } = await supabase
-          .from('customers')
-          .select(
-            'id,owner_user_id,first_name,last_name,email,phone,dog_name,chip_number,balance,total_transactions,level,avatar_initials,avatar_color,training_progress,created_at,created_by_text,qr_code_data,documents'
-          )
-          .eq('owner_user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-
-        if (customerError || !customerRow) {
-          setCustomers([]);
-          setTransactions([]);
-          return;
-        }
-
-        setCustomers([mapCustomerRowToCustomer(customerRow)]);
-
-        const { data: trxRows } = await supabase
-          .from('transactions')
-          .select(
-            'id,customer_id,type,description,amount,created_at,employee_user:profiles(first_name,last_name,email)'
-          )
-          .eq('customer_id', customerRow.id)
-          .order('created_at', { ascending: false });
-
-        setTransactions((trxRows || []).map(mapTransactionRowToTransaction));
-        return;
-      }
-
-      // ADMIN oder MITARBEITER: alle Kunden und alle Transaktionen laden
-      const { data: customerRows, error: customersError } = await supabase
-        .from('customers')
-        .select(
-          'id,owner_user_id,first_name,last_name,email,phone,dog_name,chip_number,balance,total_transactions,level,avatar_initials,avatar_color,training_progress,created_at,created_by_text,qr_code_data,documents'
-        )
-        .order('created_at', { ascending: false });
-
-      if (customersError) {
-        setCustomers([]);
-      } else {
-        setCustomers((customerRows || []).map(mapCustomerRowToCustomer));
-      }
-
-      const { data: trxRows, error: trxError } = await supabase
-        .from('transactions')
-        .select(
-          'id,customer_id,type,description,amount,created_at,employee_user:profiles(first_name,last_name,email)'
-        )
-        .order('created_at', { ascending: false });
-
-      if (trxError) {
-        setTransactions([]);
-      } else {
-        setTransactions((trxRows || []).map(mapTransactionRowToTransaction));
-      }
-    };
-
-    const loadUser = async (userId: string) => {
-      const { data: profile, error: profileError } = await supabase
+    const fetchInitialData = async (currentSession: Session) => {
+      setIsLoading(true);
+      
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id,email,role,first_name,last_name,created_at')
-        .eq('id', userId)
+        .select('*')
+        .eq('id', currentSession.user.id)
         .single();
 
-      if (profileError || !profile) {
-        const msg = profileError?.message || 'Profil konnte nicht geladen werden.';
-        setAuthError(`Login-Fehler: ${msg}`);
-        return null;
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        await supabase.auth.signOut();
+        setIsLoading(false);
+        return;
       }
-
-      setAuthError('');
-
-      const roleEnum = mapDbRoleToEnum(profile.role);
-
-      let associatedCustomerId: string | undefined = undefined;
-      if (roleEnum === UserRoleEnum.KUNDE) {
-        const { data: cRow } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('owner_user_id', userId)
-          .limit(1)
-          .maybeSingle();
-        if (cRow?.id) associatedCustomerId = cRow.id;
-      }
-
-      const firstName = profile.first_name || (profile.email ? profile.email.split('@')[0] : '');
-      const lastName = profile.last_name || '';
-      const initials =
-        ((firstName.substring(0, 1) || '') + (lastName.substring(0, 1) || firstName.substring(1, 2) || ''))
-          .toUpperCase()
-          .substring(0, 2) || '??';
-
-      const user: User = {
-        id: profile.id,
-        firstName,
-        lastName,
-        email: profile.email,
-        role: roleEnum,
-        avatarInitials: initials,
-        avatarColor: 'bg-green-500',
-        createdAt: profile.created_at ? new Date(profile.created_at).toLocaleDateString('de-DE') : new Date().toLocaleDateString('de-DE'),
-        associatedCustomerId
+      
+      const loggedInUser: User = {
+        id: profileData.id,
+        firstName: profileData.firstName || '',
+        lastName: profileData.lastName || '',
+        email: profileData.email,
+        role: profileData.role as UserRoleEnum,
+        associatedCustomerId: profileData.associatedCustomerId,
+        avatarInitials: `${(profileData.firstName || '?').charAt(0)}${(profileData.lastName || '?').charAt(0)}`.toUpperCase(),
+        avatarColor: 'bg-gray-500',
+        created_at: new Date(profileData.created_at || Date.now()).toLocaleDateString('de-DE'),
       };
+      setCurrentUser(loggedInUser);
 
-      return user;
-    };
+      if (loggedInUser.role !== UserRoleEnum.KUNDE) {
+        const { data: customersData, error: customersError } = await supabase.from('customers').select('*');
+        if (customersError) console.error("Error fetching customers:", customersError.message);
 
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+        const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*');
+        if (transactionsError) console.error("Error fetching transactions:", transactionsError.message);
 
-      if (!isMounted) return;
+        setCustomers(customersData?.map(parseCustomerData) || []);
+        setTransactions(transactionsData || []);
 
-      if (!session?.user?.id) {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        setAuthError('');
-        return;
-      }
-
-      const user = await loadUser(session.user.id);
-      if (!isMounted) return;
-
-      if (user) {
-        setIsLoggedIn(true);
-        setCurrentUser(user);
-        await loadDataForRole(user);
-      } else {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-      }
-    };
-
-    init();
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isMounted) return;
-
-      if (!session?.user?.id) {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        setAuthError('');
-        return;
-      }
-
-      const user = await loadUser(session.user.id);
-      if (!isMounted) return;
-
-      if (user) {
-        setIsLoggedIn(true);
-        setCurrentUser(user);
-        await loadDataForRole(user);
-      } else {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-// Effect for initial redirection based on login status and user role
-  useEffect(() => {
-    if (!isLoggedIn) {
-      if (window.location.hash !== '#/login') {
-        navigate('/login', { replace: true });
-      }
-    } else if (currentUser) { // If logged in and currentUser is available
-      if (currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId) {
-        const expectedPath = `/customers/${currentUser.associatedCustomerId}`;
-        // Check if the current hash path is *not* the expected customer path
-        if (!window.location.hash.startsWith(`#${expectedPath}`)) {
-          navigate(expectedPath, { replace: true }); // Use replace to prevent back button issues
+        if (loggedInUser.role === UserRoleEnum.ADMIN) {
+          const { data: staffData, error: staffError } = await supabase.from('profiles').select('*').in('role', ['Admin', 'Mitarbeiter']);
+           if (staffError) console.error("Error fetching staff:", staffError.message);
+          setUsers(staffData?.map(p => ({
+            id: p.id,
+            firstName: p.firstName || '', lastName: p.lastName || '', email: p.email, role: p.role,
+            associatedCustomerId: p.associatedCustomerId,
+            avatarInitials: `${(p.firstName || '?').charAt(0)}${(p.lastName || '?').charAt(0)}`.toUpperCase(),
+            avatarColor: 'bg-gray-500',
+            created_at: new Date(p.created_at || Date.now()).toLocaleDateString('de-DE'),
+          })) || []);
         }
-      } else if (window.location.hash === '#/login') {
-        navigate('/', { replace: true });
+      } else if (loggedInUser.associatedCustomerId) {
+        const { data: customerData } = await supabase.from('customers').select('*').eq('id', loggedInUser.associatedCustomerId).single();
+        const { data: customerTransactions } = await supabase.from('transactions').select('*').eq('customerId', loggedInUser.associatedCustomerId);
+        setCustomers(customerData ? [parseCustomerData(customerData)] : []);
+        setTransactions(customerTransactions || []);
       }
+      setIsLoading(false);
+    };
+
+    if (session) {
+      fetchInitialData(session);
+    } else {
+      // Clear all data on logout
+      setCurrentUser(null);
+      setCustomers([]);
+      setTransactions([]);
+      setUsers([]);
+      setIsLoading(false);
+      navigate('/login');
     }
-  }, [isLoggedIn, navigate, currentUser]);
-
-  const handleLogin = async (email: string, passwordInput: string): Promise<boolean> => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: passwordInput
-    });
-
-    if (error) {
-      return false;
-    }
-
-    return true;
-  };
-
-
-
-  const handleRegister = async (email: string, password: string): Promise<boolean> => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (error) {
-      return false;
-    }
-
-    // Falls E-Mail-Bestätigung in Supabase aktiv ist, entsteht ggf. noch keine Session.
-    return true;
-  };
-  const handleUpdateCustomer = (updatedCustomer: Customer) => {
-    setCustomers(prevCustomers =>
-      prevCustomers.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c))
-    );
-  };
-
-  const handleAddTransaction = (newTransaction: Transaction) => {
-    setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
-  };
-
-  // User management functions
-  const handleAddUser = (newUser: User) => {
-    // If the new user is a 'Kunde' AND has an associatedCustomerId (set in UserManagement.tsx),
-    // create a new customer for them in the customers state FIRST.
-    if (newUser.role === UserRoleEnum.KUNDE && newUser.associatedCustomerId) {
-      const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
-      const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
-
-      const newCustomer: Customer = {
-        id: newUser.associatedCustomerId, // Use the associatedCustomerId from the user
-        avatarInitials: newUser.avatarInitials, // Use user's initials
-        avatarColor: newUser.avatarColor || randomColor, // Use user's color or random
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-        phone: '', // Default value
-        dogName: 'Unbekannt', // Default value
-        chipNumber: '', // Default value
-        balance: 0.00,
-        totalTransactions: 0,
-        level: TrainingLevelEnum.EINSTEIGER, // Default level
-        createdAt: newUser.createdAt,
-        createdBy: currentUser?.firstName || 'System', // Use current user or System
-        qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${newUser.associatedCustomerId}`,
-        documents: [],
-        trainingProgress: [
-          { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
-          { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-          { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-          { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-          { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-        ],
-      };
-      setCustomers(prevCustomers => {
-        const updatedCustomers = [...prevCustomers, newCustomer];
-        console.log('handleAddUser: New customer added. Current customers state:', updatedCustomers);
-        return updatedCustomers;
-      });
-    }
-    // THEN update the users state
-    setUsers(prevUsers => [...prevUsers, newUser]); 
-  };
-
-  const handleUpdateUser = (updatedUser: User) => {
-    setUsers(prevUsers => {
-      // If the updated user is a 'Kunde' and has an associatedCustomerId,
-      // also update the corresponding customer's details
-      if (updatedUser.role === UserRoleEnum.KUNDE && updatedUser.associatedCustomerId) {
-        setCustomers(prevCustomers =>
-          prevCustomers.map(customer => {
-            if (customer.id === updatedUser.associatedCustomerId) {
-              return {
-                ...customer,
-                firstName: updatedUser.firstName,
-                lastName: updatedUser.lastName,
-                email: updatedUser.email,
-                // Add any other fields that should sync from User to Customer
-                avatarInitials: updatedUser.avatarInitials,
-                avatarColor: updatedUser.avatarColor,
-              };
+  }, [session, supabase, navigate]);
+  
+  // Effect 3: Handles navigation for logged-in customers.
+  useEffect(() => {
+    if (!isLoading && session && currentUser) {
+        if (currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId) {
+            const expectedPath = `/customers/${currentUser.associatedCustomerId}`;
+            if (window.location.hash !== `#${expectedPath}`) {
+                navigate(expectedPath, { replace: true });
             }
-            return customer;
-          })
-        );
-      }
-      return prevUsers.map(u => (u.id === updatedUser.id ? updatedUser : u));
-    });
+        }
+    }
+  }, [isLoading, session, currentUser, navigate]);
+
+  const handleLogin = async (email: string, passwordInput: string): Promise<string | null> => {
+    if (!supabase) return "Supabase Client nicht initialisiert.";
+    const { error } = await supabase.auth.signInWithPassword({ email, password: passwordInput });
+    if (error) {
+        console.error("Login Error:", error);
+        return error.message;
+    }
+    return null;
   };
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(prevUsers => {
-      const userToDelete = prevUsers.find(u => u.id === userId);
-      // If the deleted user is a 'Kunde' with an associatedCustomerId, also delete the customer
-      if (userToDelete && userToDelete.role === UserRoleEnum.KUNDE && userToDelete.associatedCustomerId) {
-        setCustomers(prevCustomers =>
-          prevCustomers.filter(c => c.id !== userToDelete.associatedCustomerId)
-        );
+  const handleRegister = async (email: string, password: string): Promise<string | null> => {
+    if (!supabase) return "Supabase Client nicht initialisiert.";
+
+    // STEP 1: Define all customer data first.
+    // New, shorter customer ID generation
+    const idPrefix = (email.split('@')[0] || 'KUNDE').substring(0, 4).toUpperCase();
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const associatedCustomerId = `${idPrefix}-${randomSuffix}`;
+    
+    const firstName = email.split('@')[0] || 'Neuer';
+    const lastName = '(Kunde)';
+    const initials = (firstName.substring(0, 2) || '??').toUpperCase();
+    const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
+
+    const newCustomer = {
+      id: associatedCustomerId,
+      avatarInitials: initials,
+      avatarColor: avatarColors[Math.floor(Math.random() * avatarColors.length)],
+      firstName, lastName, email, phone: '', dogName: '', chipNumber: '',
+      balance: 0, totalTransactions: 0, level: TrainingLevelEnum.EINSTEIGER,
+      // 'created_at' is removed. The database will set this automatically.
+      createdBy: 'Registrierung', // This is crucial for the RLS policy
+      qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/customer/${associatedCustomerId}`,
+      documents: [],
+      trainingProgress: [
+        { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
+        { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
+      ],
+    };
+
+    // STEP 2: Create the customer record BEFORE creating the user.
+    const { error: customerInsertError } = await supabase.from('customers').insert([{
+      ...newCustomer,
+      trainingProgress: JSON.stringify(newCustomer.trainingProgress)
+    }]);
+
+    if (customerInsertError) {
+      console.error("Customer Insert Error (Step 1):", customerInsertError);
+      return `Fehler beim Erstellen des Kundenprofils: ${customerInsertError.message}`;
+    }
+
+    // STEP 3: Now that the customer exists, create the auth user.
+    // The trigger will now find the customer and the foreign key constraint will be satisfied.
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          firstName,
+          lastName,
+          role: UserRoleEnum.KUNDE,
+          associatedCustomerId // Pass the now-existing customer ID
+        }
       }
-      return prevUsers.filter(u => u.id !== userId);
     });
+
+    if (signUpError) {
+      console.error("Sign-Up Error (Step 2):", signUpError);
+      // In a production app, you might want to delete the orphaned customer record created in step 2.
+      // This requires admin privileges and is complex to handle from the client.
+      return `Registrierungsfehler: ${signUpError.message}. Bitte kontaktieren Sie den Support.`;
+    }
+
+    // onAuthStateChange will handle the login and data refresh.
+    return null;
   };
+
+
+  const handleUpdateCustomer = async (updatedCustomer: Customer) => {
+    if (!supabase) return;
+    const { dataSource, ...customerToUpdate } = updatedCustomer;
+    const { error } = await supabase.from('customers').update({
+      ...customerToUpdate,
+      trainingProgress: JSON.stringify(customerToUpdate.trainingProgress)
+    }).eq('id', updatedCustomer.id);
+    if (error) {
+        alert(`Fehler beim Speichern der Kundendaten: ${error.message}`);
+    } else {
+        setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
+    }
+  };
+
+  const handleAddTransaction = async (newTransaction: Omit<Transaction, 'created_at'>) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('transactions').insert([newTransaction]);
+    if (error) {
+        alert(`Fehler beim Buchen der Transaktion: ${error.message}`);
+    } else {
+        // To properly update state, we need a complete transaction object, including created_at
+        // For simplicity, we'll refetch data or just add what we have.
+        // A full solution would get the created transaction back from the DB.
+        const completeTransaction = { ...newTransaction, created_at: new Date().toISOString() };
+        setTransactions(prev => [...prev, completeTransaction]);
+    }
+  };
+  
+  const handleUpdateUser = async (updatedUser: User) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('profiles').update({
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      role: updatedUser.role,
+    }).eq('id', updatedUser.id);
+    if (error) {
+      alert(`Fehler beim Aktualisieren des Benutzers: ${error.message}`);
+    } else {
+      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+      if (currentUser && currentUser.id === updatedUser.id) {
+        setCurrentUser(prev => prev ? {...prev, ...updatedUser} : null);
+      }
+    }
+  };
+
+  const handleAddUser = (newUser: User) => alert("Neue Mitarbeiter müssen direkt im Supabase Dashboard unter 'Authentication' angelegt und deren Rolle im 'Table Editor' unter 'profiles' zugewiesen werden.");
+  const handleDeleteUser = (userId: string) => alert("Das Löschen von Mitarbeitern muss aus Sicherheitsgründen direkt im Supabase Dashboard erfolgen.");
 
   const handleLogout = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    alert('Sie wurden abgemeldet.');
-    navigate('/login', { replace: true });
   };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center">
+          <p className="text-xl font-semibold text-gray-700">Mantrailing Card wird geladen...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {isLoggedIn && currentUser ? (
+      {session && currentUser ? (
         <>
           <Sidebar appName="Mantrailing Card" currentUser={currentUser} onLogout={handleLogout} />
           <main className="flex-1 md:ml-64 p-0">
             <Routes>
               {currentUser.role === UserRoleEnum.ADMIN ? (
-                // Admin has full access
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route
-                    path="/customers/:id"
-                    element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />}
-                  />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
-                  <Route path="*" element={<Dashboard customers={customers} transactions={transactions} />} /> {/* Fallback for Admin */}
+                  <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.MITARBEITER ? (
-                // Mitarbeiter has restricted access
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route
-                    path="/customers/:id"
-                    element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />}
-                  />
-                  {/* Redirect any restricted path or unknown path for Mitarbeiter to dashboard */}
-                  <Route path="/reports" element={<Dashboard customers={customers} transactions={transactions} />} />
-                  <Route path="/users" element={<Dashboard customers={customers} transactions={transactions} />} />
-                  <Route path="*" element={<Dashboard customers={customers} transactions={transactions} />} /> {/* Fallback for Mitarbeiter */}
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
+                  <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId ? (
-                // Kunde has access only to their own customer details, enforced by internal component logic and redirects
                 <>
-                  {/* Dynamic route for *any* customer ID. The CustomerDetails component will authorize. */}
-                  <Route
-                    path="/customers/:id"
-                    element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />}
-                  />
-                  {/* Redirect root path to their own specific customer page */}
-                  <Route path="/" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
-                  {/* Catch-all for any other path not explicitly handled, redirects to their own customer page */}
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
                 </>
               ) : (
-                // Fallback for any other unexpected logged-in state (e.g., customer role without associated ID, though type system should prevent this state for a logged-in user)
-                <Route path="*" element={<Dashboard customers={customers} transactions={transactions} />} />
+                <Route path="*" element={<Navigate replace to="/login" />} />
               )}
             </Routes>
           </main>
         </>
       ) : (
-        // Not logged in
         <Routes>
-          <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} externalError={authError} />} />
-          <Route path="*" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} externalError={authError} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
+          <Route path="*" element={<Navigate replace to="/login" />} />
         </Routes>
       )}
     </div>

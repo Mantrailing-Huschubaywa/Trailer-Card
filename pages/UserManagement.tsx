@@ -62,7 +62,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
         email: userData.email,
         role: userData.role, // This will be hardcoded to Mitarbeiter by the modal
         password: userData.password,
-        createdAt: REFERENCE_DATE.toLocaleDateString('de-DE'),
+        created_at: REFERENCE_DATE.toLocaleDateString('de-DE'),
       };
       
       onAddUser(newUser);
@@ -111,9 +111,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           <h1 className="text-3xl font-bold text-gray-900">Mitarbeiterverwaltung</h1>
           <p className="text-gray-600">Verwalten Sie alle Mitarbeiter und Administratoren</p>
         </div>
-        <Button variant="success" icon={UserPlusIcon} onClick={handleOpenAddUserModal}>
-          Neuer Mitarbeiter
-        </Button>
       </div>
 
       <Card className="mt-8">

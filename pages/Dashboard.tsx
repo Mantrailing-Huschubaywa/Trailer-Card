@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
@@ -36,11 +35,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
     { title: 'Transaktionen Monat', value: currentMonthTransactions.length, icon: RepeatIcon, color: 'bg-purple-100 text-purple-700' },
   ];
 
-  // Aktuelle Kunden (based on createdAt, max 5, scrollable)
+  // Aktuelle Kunden (based on created_at, max 5, scrollable)
   const recentCustomers = [...customers]
     .sort((a, b) => {
-      const dateA = parseDateString(a.createdAt);
-      const dateB = parseDateString(b.createdAt);
+      const dateA = parseDateString(a.created_at);
+      const dateB = parseDateString(b.created_at);
       if (!dateA || !dateB) return 0; // Handle invalid dates
       return dateB.getTime() - dateA.getTime(); // Sort descending
     })
@@ -78,7 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
         {/* Aktuelle Kunden */}
         <Card>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Aktuelle Kunden</h2>
-          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar"> {/* Changed max-h-72 to max-h-96 */}
+          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {recentCustomers.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Kunden gefunden.</p>
             ) : (
@@ -101,7 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
         {/* Letzte Transaktionen */}
         <Card>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Letzte Transaktionen</h2>
-          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar"> {/* Changed max-h-72 to max-h-96 */}
+          <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {latestTransactions.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Transaktionen gefunden.</p>
             ) : (
@@ -111,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
                 const TransactionIcon = isRecharge ? ArrowUpCircleIcon : ArrowDownCircleIcon;
                 const iconColor = isRecharge ? 'text-green-500' : 'text-red-500';
                 const amountColor = isRecharge ? 'text-green-700' : 'text-red-700';
-                const amountSign = isRecharge ? '+' : '-'; // Changed to dynamically show + or -
+                const amountSign = isRecharge ? '+' : '-';
 
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

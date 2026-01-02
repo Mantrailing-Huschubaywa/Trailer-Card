@@ -14,11 +14,12 @@ export interface Customer {
   balance: number;
   totalTransactions: number;
   level: TrainingLevelEnum;
-  createdAt: string; // Date string (e.g., '9.2.2025')
+  created_at: string; // Date string (e.g., '9.2.2025')
   createdBy: string;
   qrCodeData: string; // URL for QR code image
   documents: Document[];
   trainingProgress: TrainingSection[];
+  dataSource?: 'mock' | 'db'; // NEU: Zur Kennzeichnung der Datenquelle
 }
 
 // New type for the customer editing form
@@ -39,6 +40,7 @@ export interface Transaction {
   amount: number;
   date: string; // Date string (e.g., '22.12.2025')
   employee: string;
+  created_at: string;
 }
 
 export enum TrainingLevelEnum {
@@ -85,7 +87,8 @@ export interface CustomerTableData {
   dog: string;
   balance: number;
   level: TrainingLevelEnum;
-  createdAt: string;
+  created_at: string;
+  dataSource?: 'mock' | 'db'; // NEU: Zur Kennzeichnung in der Tabelle
 }
 
 export interface TransactionConfirmationData {
@@ -113,7 +116,7 @@ export interface User {
   lastName: string;
   email: string;
   role: UserRoleEnum;
-  createdAt: string; // Date string (e.g., '11.12.2025')
+  created_at: string; // Date string (e.g., '11.12.2025')
   password?: string; // Optional password for mock login
   associatedCustomerId?: string; // Optional: for customer role, links to their customer ID
 }
@@ -127,5 +130,5 @@ export interface UserTableData {
   lastName: string;  // Added for internal use
   email: string;
   role: UserRoleEnum;
-  createdAt: string;
+  created_at: string;
 }

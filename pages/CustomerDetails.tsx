@@ -97,7 +97,7 @@ interface CustomerDetailsProps {
   customers: Customer[];
   transactions: Transaction[];
   onUpdateCustomer: (updatedCustomer: Customer) => void;
-  onAddTransaction: (newTransaction: Transaction) => void;
+  onAddTransaction: (newTransaction: Omit<Transaction, 'created_at'>) => void;
   currentUser: User;
 }
 
@@ -116,27 +116,13 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [transactionData, setTransactionData] = useState<TransactionConfirmationData | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editableData, setEditableData] = useState({
-    phone: '',
-    dogName: '',
-    chipNumber: '',
-  });
 
   useEffect(() => {
     setIsLoadingCustomer(true);
     if (id) {
       const foundCustomer = customers.find((c) => c.id === id);
       setCustomer(foundCustomer || null);
-
-      if (foundCustomer) {
-        setEditableData({
-          phone: foundCustomer.phone,
-          dogName: foundCustomer.dogName,
-          chipNumber: foundCustomer.chipNumber,
-        });
-      }
     } else {
       setCustomer(null);
     }
@@ -258,7 +244,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
     onUpdateCustomer(finalUpdatedCustomer);
 
-    const newTransaction: Transaction = {
+    const newTransaction: Omit<Transaction, 'created_at'> = {
       id: `trx-${transactions.length + 1}-${Date.now()}`,
       customerId: customer.id,
       type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
@@ -279,42 +265,11 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     handleOpenConfirmationModal(defaultAmount, type, description);
   };
   
-  const handleToggleEditMode = () => {
-    if (!isEditMode) {
-      setEditableData({
-        phone: customer.phone,
-        dogName: customer.dogName,
-        chipNumber: customer.chipNumber,
-      });
-    }
-    setIsEditMode(!isEditMode);
-  };
-  
-  const handleCancelEdit = () => {
-    setIsEditMode(false);
-  };
-
-  const handleSaveChanges = () => {
-    const updatedCustomer = {
-      ...customer,
-      phone: editableData.phone,
-      dogName: editableData.dogName,
-      chipNumber: editableData.chipNumber,
-    };
-    onUpdateCustomer(updatedCustomer);
-    setIsEditMode(false);
-  };
-
   const handleUpdateStammdaten = (data: NewCustomerData) => {
     if (!customer) return;
     const updatedCustomer = { ...customer, ...data };
     onUpdateCustomer(updatedCustomer);
     setIsEditModalOpen(false);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setEditableData(prev => ({ ...prev, [id]: value }));
   };
 
   const getStatusClasses = (status: string) => {
@@ -372,24 +327,17 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </h1>
         </div>
         
-        {isEditMode ? (
-          <div className="flex space-x-3">
-            <Button variant="outline" onClick={handleCancelEdit}>Abbrechen</Button>
-            <Button variant="success" icon={SaveIcon} onClick={handleSaveChanges}>Speichern</Button>
-          </div>
-        ) : (
-          <div className="flex space-x-3">
-            {canPerformActions && (
-              <>
-                <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>Stammdaten</Button>
-                <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>Transaktionen</Button>
-              </>
-            )}
-            {isCustomerViewing && (
-              <Button variant="primary" icon={EditIcon} onClick={handleToggleEditMode}>Meine Daten bearbeiten</Button>
-            )}
-          </div>
-        )}
+        <div className="flex space-x-3">
+          {canPerformActions && (
+            <>
+              <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>Stammdaten</Button>
+              <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>Transaktionen</Button>
+            </>
+          )}
+          {isCustomerViewing && (
+            <Button variant="primary" icon={EditIcon} onClick={() => setIsEditModalOpen(true)}>Meine Daten bearbeiten</Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -402,21 +350,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <DataRow Icon={UserIcon} label="Vorname" value={customer.firstName} />
                 <DataRow Icon={UserIcon} label="Nachname" value={customer.lastName} />
                 <DataRow Icon={MailIcon} label="E-Mail" value={customer.email} />
-                {isEditMode ? (
-                  <Input id="phone" label="Telefon" value={editableData.phone} onChange={handleInputChange} />
-                ) : (
-                  <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} />
-                )}
-                {isEditMode ? (
-                  <Input id="dogName" label="Hund" value={editableData.dogName} onChange={handleInputChange} />
-                ) : (
-                  <DataRow Icon={HeartIcon} label="Hund" value={customer.dogName} />
-                )}
-                {isEditMode ? (
-                  <Input id="chipNumber" label="Chipnummer" value={editableData.chipNumber} onChange={handleInputChange} />
-                ) : (
-                  <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} />
-                )}
+                <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} />
+                <DataRow Icon={HeartIcon} label="Hund" value={customer.dogName} />
+                <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} />
               </div>
             </div>
           </Card>
@@ -521,7 +457,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           <Card>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto</h2>
             <div className="space-y-2 text-gray-700">
-              <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{customer.createdAt}</span></div>
+              <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{new Date(customer.created_at).toLocaleDateString('de-DE')}</span></div>
               <div className="flex justify-between"><span>Kunden-ID</span><span className="font-bold">{customer.id}</span></div>
             </div>
           </Card>
