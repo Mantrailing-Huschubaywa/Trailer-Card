@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
@@ -6,14 +7,15 @@ import Avatar from '../components/Avatar';
 import { ArrowUpCircleIcon, ArrowDownCircleIcon, UsersIcon, DollarSignIcon, ClipboardIcon, RepeatIcon } from '../components/Icons';
 import { Link } from 'react-router-dom';
 import { parseDateString, isSameDay, isSameMonth } from '../utils';
-import { Customer, Transaction } from '../types'; // Import types
+import { Customer, Transaction, User } from '../types'; // Import User type
 
 interface DashboardProps {
   customers: Customer[];
   transactions: Transaction[];
+  currentUser: User | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
+const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentUser }) => {
   // Dynamic calculations for Dashboard Stats
   const totalCustomers = customers.length;
   const totalBalance = customers.reduce((sum, customer) => sum + customer.balance, 0);
@@ -54,10 +56,12 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions }) => {
       return dateB.getTime() - dateA.getTime(); // Sort descending
     })
     .slice(0, 5); // Take top 5
+    
+  const welcomeMessage = currentUser ? `Hallo, ${currentUser.firstName}!` : 'Willkommen!';
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Willkommen, Christian Christian!</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">{welcomeMessage}</h1>
       <p className="text-gray-600 mb-8">Übersicht ihrer Trails-Wertkarten</p>
 
       {/* Stats Cards */}

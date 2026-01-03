@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 
@@ -87,6 +88,7 @@ export interface CustomerTableData {
   dog: string;
   balance: number;
   level: TrainingLevelEnum;
+  totalTrails: number;
   created_at: string;
   dataSource?: 'mock' | 'db'; // NEU: Zur Kennzeichnung in der Tabelle
 }

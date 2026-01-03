@@ -9,14 +9,15 @@ import CustomerDetails from './pages/CustomerDetails';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
 import LoginPage from './pages/LoginPage';
-import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum } from './types';
+import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum, TrainingSection } from './types';
 import { REFERENCE_DATE } from './constants';
 import { USE_MOCK_DATA } from './config';
 import { getSupabaseClient } from './supabaseClient';
+import { getAvatarColorForLevel } from './utils';
 
 // Helper function to safely parse customer data from Supabase
 const parseCustomerData = (c: any): Customer => {
-  let trainingProgress = c.trainingProgress;
+  let trainingProgress: TrainingSection[] = c.trainingProgress;
   // Supabase returns JSONB columns as strings, so we need to parse them.
   if (typeof trainingProgress === 'string') {
     try {
@@ -26,7 +27,30 @@ const parseCustomerData = (c: any): Customer => {
       trainingProgress = []; // Fallback auf ein leeres Array bei einem Fehler
     }
   }
-  return { ...c, trainingProgress, dataSource: 'db' };
+
+  // Korrigieren Sie Level und Avatar-Farbe basierend auf den aktuellen Trails bei jedem Laden
+  const totalTrails = trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+  
+  let level: TrainingLevelEnum;
+  if (totalTrails <= 12) {
+    level = TrainingLevelEnum.EINSTEIGER;
+  } else if (totalTrails <= 24) {
+    level = TrainingLevelEnum.GRUNDLAGEN;
+  } else if (totalTrails <= 36) {
+    level = TrainingLevelEnum.FORTGESCHRITTENE;
+  } else if (totalTrails <= 49) {
+    level = TrainingLevelEnum.MASTERCLASS;
+  } else {
+    level = TrainingLevelEnum.EXPERT;
+  }
+  
+  return { 
+    ...c, 
+    trainingProgress, 
+    level, // Stellen Sie sicher, dass das Level auch aktuell ist
+    avatarColor: getAvatarColorForLevel(level), // Legen Sie die korrekte Avatar-Farbe fest
+    dataSource: 'db' 
+  };
 };
 
 // Mobile Header Component
@@ -110,7 +134,7 @@ const App: React.FC = () => {
         role: profileData.role as UserRoleEnum,
         associatedCustomerId: profileData.associatedCustomerId,
         avatarInitials: `${(profileData.firstName || '?').charAt(0)}${(profileData.lastName || '?').charAt(0)}`.toUpperCase(),
-        avatarColor: 'bg-gray-500',
+        avatarColor: 'bg-orange-500',
         created_at: new Date(profileData.created_at || Date.now()).toLocaleDateString('de-DE'),
       };
       setCurrentUser(loggedInUser);
@@ -133,7 +157,7 @@ const App: React.FC = () => {
             firstName: p.firstName || '', lastName: p.lastName || '', email: p.email, role: p.role,
             associatedCustomerId: p.associatedCustomerId,
             avatarInitials: `${(p.firstName || '?').charAt(0)}${(p.lastName || '?').charAt(0)}`.toUpperCase(),
-            avatarColor: 'bg-gray-500',
+            avatarColor: 'bg-orange-500',
             created_at: new Date(p.created_at || Date.now()).toLocaleDateString('de-DE'),
           })) || []);
         }
@@ -197,7 +221,6 @@ const App: React.FC = () => {
     const firstName = email.split('@')[0] || 'Neuer';
     const lastName = '(Kunde)';
     const initials = (firstName.substring(0, 2) || '??').toUpperCase();
-    const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
     
     const targetUrl = `https://trailer-card.vercel.app/#/customers/${associatedCustomerId}`;
     const encodedTargetUrl = encodeURIComponent(targetUrl);
@@ -205,17 +228,17 @@ const App: React.FC = () => {
     const newCustomerData = {
       id: associatedCustomerId,
       avatarInitials: initials,
-      avatarColor: avatarColors[Math.floor(Math.random() * avatarColors.length)],
+      avatarColor: getAvatarColorForLevel(TrainingLevelEnum.EINSTEIGER),
       firstName, lastName, email, phone: '', dogName: '', chipNumber: '',
       balance: 0, totalTransactions: 0, level: TrainingLevelEnum.EINSTEIGER,
       createdBy: 'Registrierung',
       qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedTargetUrl}`,
       documents: [],
       trainingProgress: JSON.stringify([
-        { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 6, completedHours: 0, status: 'Aktuell' },
+        { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
         { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
         { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-        { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+        { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 13, completedHours: 0, status: 'Gesperrt' },
         { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
       ]),
     };
@@ -378,7 +401,7 @@ const App: React.FC = () => {
             <Routes>
               {currentUser.role === UserRoleEnum.ADMIN ? (
                 <>
-                  <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
+                  <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} />} />
@@ -387,7 +410,7 @@ const App: React.FC = () => {
                 </>
               ) : currentUser.role === UserRoleEnum.MITARBEITER ? (
                 <>
-                  <Route path="/" element={<Dashboard customers={customers} transactions={transactions} />} />
+                  <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />

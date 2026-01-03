@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Modal from '../components/Modal';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import TransactionConfirmationModal from '../components/TransactionConfirmationModal';
 import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal';
 import CustomerFormModal from '../components/CustomerFormModal';
-import TransactionHistoryModal from '../components/TransactionHistoryModal'; // Import the new modal
+import TransactionHistoryModal from '../components/TransactionHistoryModal';
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -16,82 +18,200 @@ import {
   MailIcon,
   PhoneIcon,
   AwardIcon,
-  UploadIcon,
   UserIcon,
-  ChevronDownIcon,
   EditIcon,
-  SaveIcon,
-  ArrowUpCircleIcon,
-  ArrowDownCircleIcon,
+  PawPrintIcon,
+  TrailBadge10Icon,
+  TrailBadge50Icon,
+  TrailBadge100Icon,
+  TrailBadge500Icon, // NEU
 } from '../components/Icons';
 import { CURRENT_EMPLOYEE, REFERENCE_DATE } from '../constants';
-import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData } from '../types';
+import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
+import { getAvatarColorForLevel } from '../utils';
 
-interface TrainingHourCircleProps {
-  filled: boolean;
-  className?: string;
+// --- NEUES MODAL FÜR STARTWERT ---
+interface SetInitialTrailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (totalTrails: number) => void;
+  currentTrails: number;
 }
 
-const TrainingPawIcon: React.FC<TrainingHourCircleProps> = ({ filled, className = '' }) => (
-  <div
-    className={`flex items-center justify-center h-16 w-16 rounded-full border
-      ${filled ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200'}
-      ${className}`}
-  >
-    <img
-      src="https://hs-bw.com/wp-content/uploads/2025/12/Suchund-Icon.png"
-      alt="Paw Icon"
-      className={`h-10 w-10 object-contain ${!filled ? 'grayscale opacity-50' : ''}`}
-    />
-  </div>
-);
+const SetInitialTrailsModal: React.FC<SetInitialTrailsModalProps> = ({ isOpen, onClose, onSubmit, currentTrails }) => {
+  const [trails, setTrails] = useState(currentTrails.toString());
+  const [error, setError] = useState('');
 
-interface HundredHourMilestoneBadgeProps {
-  milestoneNumber: number;
-}
+  useEffect(() => {
+    if (isOpen) {
+      setTrails(currentTrails.toString());
+      setError('');
+    }
+  }, [isOpen, currentTrails]);
 
-const HundredHourMilestoneBadge: React.FC<HundredHourMilestoneBadgeProps> = ({ milestoneNumber }) => {
-  const baseClasses = "flex flex-col items-center justify-center h-32 w-32 p-2 rounded-lg text-center shadow-md";
-  let specificClasses = "";
-  let textColor = "text-amber-800";
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numTrails = parseInt(trails, 10);
+    if (isNaN(numTrails) || numTrails < 0) {
+      setError('Bitte geben Sie eine gültige, positive Zahl ein.');
+      return;
+    }
+    onSubmit(numTrails);
+  };
 
-  switch (milestoneNumber) {
-    case 1:
-      specificClasses = "bg-amber-100 border border-amber-300";
-      break;
-    case 2:
-      specificClasses = "bg-orange-100 border border-orange-300 shadow-lg";
-      textColor = "text-orange-800";
-      break;
-    case 3:
-      specificClasses = "bg-red-100 border border-red-300 shadow-xl";
-      textColor = "text-red-800";
-      break;
-    case 4:
-      specificClasses = "bg-purple-100 border border-purple-300 shadow-2xl";
-      textColor = "text-purple-800";
-      break;
-    case 5:
-      specificClasses = "bg-blue-100 border border-blue-300 shadow-2xl";
-      textColor = "text-blue-800";
-      break;
-    default:
-      specificClasses = "bg-gray-100 border border-gray-300";
-      textColor = "text-gray-800";
-      break;
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Startwert für Trails festlegen" className="max-w-md">
+      <form onSubmit={handleSubmit} className="p-0">
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Geben Sie die Gesamtzahl der Trails ein, die dieser Kunde bereits absolviert hat.
+            Der Fortschritt wird entsprechend neu berechnet.
+          </p>
+          <Input
+            id="totalTrails"
+            label="Gesamtzahl der absolvierten Trails"
+            type="number"
+            value={trails}
+            onChange={(e) => setTrails(e.target.value)}
+            min="0"
+            error={error}
+            autoFocus
+          />
+        </div>
+        <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button variant="success" type="submit">
+            Speichern und neu berechnen
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+
+/**
+ * Zentrale Hilfsfunktion zur Ermittlung des Trainingslevels und der Farbgebung
+ * basierend auf der Gesamtzahl der absolvierten Trails.
+ * @param totalTrails Die Gesamtzahl der Trails.
+ * @returns Ein Objekt mit Level, Farbklassen und der formatierten Level-Anzeige.
+ */
+const getTrainingInfoByTrails = (totalTrails: number) => {
+  let level: TrainingLevelEnum;
+  let cardClasses: { bg: string; text: string; icon: string; };
+
+  if (totalTrails <= 12) {
+    level = TrainingLevelEnum.EINSTEIGER;
+    cardClasses = { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', icon: 'text-fuchsia-700' };
+  } else if (totalTrails <= 24) {
+    level = TrainingLevelEnum.GRUNDLAGEN;
+    cardClasses = { bg: 'bg-lime-50', text: 'text-lime-700', icon: 'text-lime-700' };
+  } else if (totalTrails <= 36) {
+    level = TrainingLevelEnum.FORTGESCHRITTENE;
+    cardClasses = { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'text-sky-700' };
+  } else if (totalTrails <= 49) {
+    level = TrainingLevelEnum.MASTERCLASS;
+    cardClasses = { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'text-amber-700' };
+  } else { // 50+
+    level = TrainingLevelEnum.EXPERT;
+    cardClasses = { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'text-indigo-700' };
+  }
+
+  const levelDisplay = `${Math.floor(totalTrails / 10) * 10}+`;
+  
+  return { level, cardClasses, totalTrails, levelDisplay };
+};
+
+// Neue Komponente zur Anzeige der Trail-Meilenstein-Abzeichen ("Trophäensammlung")
+const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
+  // Fallback for < 10 trails: A larger, more subtle paw print.
+  if (totalTrails < 10) {
+    return (
+      <div className="flex justify-center items-center py-4 min-h-[140px]">
+        <PawPrintIcon className="h-20 w-20 text-gray-400 opacity-60" />
+      </div>
+    );
+  }
+
+  const badgeGroups = [];
+  let remainingTrails = totalTrails;
+
+  // --- Render 500s badges ---
+  const num500 = Math.floor(remainingTrails / 500);
+  if (num500 > 0) {
+    const currentGroup = [];
+    for (let i = 0; i < num500; i++) {
+      currentGroup.push(
+        <div key={`500-${i}`} className="relative first:ml-0 -ml-14">
+          <TrailBadge500Icon
+            className="h-44 w-44 [filter:drop-shadow(0_5px_4px_rgba(0,0,0,0.25))]"
+          />
+        </div>
+      );
+    }
+    badgeGroups.push(<div key="group-500" className="flex items-center">{currentGroup}</div>);
+    remainingTrails %= 500;
+  }
+
+  // --- Render 100s badges ---
+  const num100 = Math.floor(remainingTrails / 100);
+  if (num100 > 0) {
+    const currentGroup = [];
+    for (let i = 0; i < num100; i++) {
+      currentGroup.push(
+        <div key={`100-${i}`} className="relative first:ml-0 -ml-12">
+          <TrailBadge100Icon
+            className="h-40 w-40 [filter:drop-shadow(0_4px_3px_rgba(0,0,0,0.25))]"
+          />
+        </div>
+      );
+    }
+    badgeGroups.push(<div key="group-100" className="flex items-center">{currentGroup}</div>);
+    remainingTrails %= 100;
+  }
+
+  // --- Render 50s badges ---
+  const num50 = Math.floor(remainingTrails / 50);
+  if (num50 > 0) {
+    const currentGroup = [];
+    for (let i = 0; i < num50; i++) {
+      currentGroup.push(
+        <div key={`50-${i}`} className="relative first:ml-0 -ml-12">
+          <TrailBadge50Icon
+            className="h-36 w-36 [filter:drop-shadow(0_3px_2px_rgba(0,0,0,0.25))]"
+          />
+        </div>
+      );
+    }
+    badgeGroups.push(<div key="group-50" className="flex items-center">{currentGroup}</div>);
+    remainingTrails %= 50;
+  }
+  
+  // --- Render 10s badges ---
+  const num10 = Math.floor(remainingTrails / 10);
+  if (num10 > 0) {
+    const currentGroup = [];
+    for (let i = 0; i < num10; i++) {
+       currentGroup.push(
+        <div key={`10-${i}`} className="relative first:ml-0 -ml-11">
+          <TrailBadge10Icon
+            className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
+          />
+        </div>
+      );
+    }
+    badgeGroups.push(<div key="group-10" className="flex items-center">{currentGroup}</div>);
   }
 
   return (
-    <div className={`${baseClasses} ${specificClasses}`}>
-      <img
-        src="https://hs-bw.com/wp-content/uploads/2025/12/Suchund-Icon.png"
-        alt={`${milestoneNumber * 100} Trails gemeistert`}
-        className="h-20 w-20 object-contain filter drop-shadow-sm"
-      />
-      <p className={`text-sm font-bold ${textColor} mt-1`}>{milestoneNumber * 100} Trails gemeistert!</p>
+    <div className="flex justify-center items-center flex-wrap gap-x-6 gap-y-4 py-4 min-h-[140px]">
+      {badgeGroups}
     </div>
   );
 };
+
 
 interface CustomerDetailsProps {
   customers: Customer[];
@@ -117,6 +237,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSetInitialTrailsModalOpen, setIsSetInitialTrailsModalOpen] = useState(false); // Neuer State
 
   useEffect(() => {
     setIsLoadingCustomer(true);
@@ -135,22 +256,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         navigate(`/customers/${currentUser.associatedCustomerId}`, { replace: true });
     }
   }, [currentUser, id, navigate]);
-
-  const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
-
-  useEffect(() => {
-    if (customer) {
-      setExpandedSections(prev => {
-        const newExpanded = { ...prev };
-        customer.trainingProgress.forEach(section => {
-          if (newExpanded[section.id] === undefined) {
-            newExpanded[section.id] = false;
-          }
-        });
-        return newExpanded;
-      });
-    }
-  }, [customer]);
   
   // Filter and sort transactions for the current customer
   const customerTransactions = transactions
@@ -212,34 +317,39 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
     const isRecharge = transactionData.transactionType === 'Aufladung';
     if (!isRecharge && transactionData.description === 'Trails' && transactionData.amount === 18) {
-      const currentTrainingProgress = [...customer.trainingProgress];
-      let customerOverallLevel = finalUpdatedCustomer.level;
+      const currentTrainingProgress: TrainingSection[] = JSON.parse(JSON.stringify(customer.trainingProgress));
+      
+      let trailAdded = false;
       const currentLevelIndex = currentTrainingProgress.findIndex(s => s.status === 'Aktuell');
 
       if (currentLevelIndex !== -1) {
-        const currentSection = { ...currentTrainingProgress[currentLevelIndex] };
-        if (currentSection.name === TrainingLevelEnum.EXPERT) {
-          if (currentSection.completedHours < 500) {
-            currentSection.completedHours += 1;
-            currentTrainingProgress[currentLevelIndex] = currentSection;
+          const currentSection = currentTrainingProgress[currentLevelIndex];
+          if (currentSection.name === TrainingLevelEnum.EXPERT) {
+              currentSection.completedHours += 1;
+              trailAdded = true;
+          } else if (currentSection.completedHours < currentSection.requiredHours) {
+              currentSection.completedHours += 1;
+              trailAdded = true;
+              if (currentSection.completedHours === currentSection.requiredHours) {
+                  currentSection.status = 'Abgeschlossen';
+                  const nextLevelIndex = currentLevelIndex + 1;
+                  if (nextLevelIndex < currentTrainingProgress.length) {
+                      currentTrainingProgress[nextLevelIndex].status = 'Aktuell';
+                  }
+              }
           }
-        } else if (currentSection.completedHours < currentSection.requiredHours) {
-          currentSection.completedHours += 1;
-          if (currentSection.completedHours === currentSection.requiredHours) {
-            currentSection.status = 'Abgeschlossen';
-            const nextLevelIndex = currentLevelIndex + 1;
-            if (nextLevelIndex < currentTrainingProgress.length) {
-              const nextSection = { ...currentTrainingProgress[nextLevelIndex] };
-              nextSection.status = 'Aktuell';
-              customerOverallLevel = nextSection.name;
-              currentTrainingProgress[nextLevelIndex] = nextSection;
-            }
-          }
-          currentTrainingProgress[currentLevelIndex] = currentSection;
-        }
-        finalUpdatedCustomer.trainingProgress = currentTrainingProgress;
-        finalUpdatedCustomer.level = customerOverallLevel;
       }
+
+      if (!trailAdded && currentTrainingProgress.length > 0) {
+          currentTrainingProgress[0].completedHours += 1;
+      }
+      
+      finalUpdatedCustomer.trainingProgress = currentTrainingProgress;
+      
+      const newTotalTrails = currentTrainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+      const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
+      finalUpdatedCustomer.level = newTrainingInfo.level;
+      finalUpdatedCustomer.avatarColor = getAvatarColorForLevel(newTrainingInfo.level);
     }
 
     onUpdateCustomer(finalUpdatedCustomer);
@@ -272,13 +382,78 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const getStatusClasses = (status: string) => {
-    switch (status) {
-      case 'Aktuell': return 'bg-green-100 text-green-800';
-      case 'Gesperrt': return 'bg-red-100 text-red-800';
-      case 'Abgeschlossen': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const handleSetInitialTrails = (newTotalTrails: number) => {
+    if (!customer) return;
+
+    const levelsConfig = [
+        { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
+        { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
+        { name: TrainingLevelEnum.FORTGESCHRITTENE, required: 12 },
+        { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
+        { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER }, // FIX: No upper limit for experts
+    ];
+
+    let remainingTrails = newTotalTrails;
+    let newTrainingProgress: TrainingSection[] = [];
+    let hasFoundCurrent = false;
+
+    for (let i = 0; i < levelsConfig.length; i++) {
+        const levelConf = levelsConfig[i];
+        const completed = Math.min(remainingTrails, levelConf.required);
+        remainingTrails -= completed;
+
+        let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
+        if (completed > 0 && !hasFoundCurrent) {
+            if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
+                status = 'Aktuell';
+                hasFoundCurrent = true;
+            } else {
+                status = 'Abgeschlossen';
+            }
+        }
+        
+        if (!hasFoundCurrent && i > 0 && newTrainingProgress[i-1]?.status === 'Abgeschlossen') {
+            status = 'Aktuell';
+            hasFoundCurrent = true;
+        }
+
+        newTrainingProgress.push({
+            id: i + 1,
+            name: levelConf.name,
+            requiredHours: levelConf.required,
+            completedHours: completed,
+            status,
+        });
     }
+    
+    if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
+        newTrainingProgress[0].status = 'Aktuell';
+    }
+
+    const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
+    
+    const finalUpdatedCustomer: Customer = {
+        ...customer,
+        trainingProgress: newTrainingProgress,
+        level: newTrainingInfo.level,
+        avatarColor: getAvatarColorForLevel(newTrainingInfo.level),
+        totalTransactions: customer.totalTransactions + 1,
+    };
+    
+    onUpdateCustomer(finalUpdatedCustomer);
+
+    const newTransaction: Omit<Transaction, 'created_at'> = {
+        id: `trx-${transactions.length + 1}-${Date.now()}`,
+        customerId: customer.id,
+        type: 'debit',
+        description: `Bestandsübernahme: ${newTotalTrails} Trails`,
+        amount: 0,
+        date: REFERENCE_DATE.toLocaleDateString('de-DE'),
+        employee: CURRENT_EMPLOYEE,
+    };
+    onAddTransaction(newTransaction);
+    
+    setIsSetInitialTrailsModalOpen(false);
   };
 
   const DataRow: React.FC<{ Icon: React.ElementType; label: string; value: string | number }> = ({ Icon, label, value }) => (
@@ -291,22 +466,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     </div>
   );
 
-  const toggleSection = (sectionId: number) => {
-    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
-  };
+  const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+  const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
-  const getLevelSummaryCardColors = (level: TrainingLevelEnum) => {
-    switch (level) {
-      case TrainingLevelEnum.EINSTEIGER: return { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', icon: 'text-fuchsia-700' };
-      case TrainingLevelEnum.GRUNDLAGEN: return { bg: 'bg-lime-50', text: 'text-lime-700', icon: 'text-lime-700' };
-      case TrainingLevelEnum.FORTGESCHRITTENE: return { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'text-sky-700' };
-      case TrainingLevelEnum.MASTERCLASS: return { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'text-amber-700' };
-      case TrainingLevelEnum.EXPERT: return { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'text-indigo-700' };
-      default: return { bg: 'bg-gray-50', text: 'text-gray-700', icon: 'text-gray-700' };
-    }
-  };
-
-  const levelSummaryColors = getLevelSummaryCardColors(customer.level);
   const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
   const isCustomerViewing = currentUser.role === UserRoleEnum.KUNDE;
 
@@ -330,6 +492,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         <div className="flex space-x-3">
           {canPerformActions && (
             <>
+              <Button variant="outline" onClick={() => setIsSetInitialTrailsModalOpen(true)}>Startwert festlegen</Button>
               <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>Stammdaten</Button>
               <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>Transaktionen</Button>
             </>
@@ -371,85 +534,22 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <p className="text-sm text-gray-600 mb-1">Transaktionen gesamt</p>
                 <p className="text-2xl font-bold text-blue-700">{customer.totalTransactions}</p>
               </button>
-              <div className={`${levelSummaryColors.bg} p-4 rounded-lg flex flex-col justify-center items-center text-center`}>
-                <p className="text-sm text-gray-600 mb-1">Level</p>
+              <div className={`${trainingInfo.cardClasses.bg} p-4 rounded-lg flex flex-col justify-center items-center text-center`}>
+                <p className="text-sm text-gray-600 mb-1">Fortschritt</p>
                 <div className="flex items-center mt-2">
-                  <AwardIcon className={`h-10 w-10 mr-2 ${levelSummaryColors.icon}`} />
-                  <p className={`text-2xl font-bold ${levelSummaryColors.text}`}>{customer.level}</p>
+                  <AwardIcon className={`h-10 w-10 mr-2 ${trainingInfo.cardClasses.icon}`} />
+                  <p className={`text-2xl font-bold ${trainingInfo.cardClasses.text}`}>{trainingInfo.levelDisplay}</p>
                 </div>
               </div>
             </div>
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Ausbildungsfortschritt</h2>
-            <div className="space-y-6">
-              {customer.trainingProgress.map((section) => {
-                let headerBgClass = 'bg-gray-50';
-                let levelCircleBgClass = 'bg-gray-400';
-
-                switch (section.name) {
-                  case TrainingLevelEnum.EINSTEIGER: headerBgClass = 'bg-fuchsia-50'; break;
-                  case TrainingLevelEnum.GRUNDLAGEN: headerBgClass = 'bg-lime-50'; break;
-                  case TrainingLevelEnum.FORTGESCHRITTENE: headerBgClass = 'bg-sky-50'; break;
-                  case TrainingLevelEnum.MASTERCLASS: headerBgClass = 'bg-amber-50'; break;
-                  case TrainingLevelEnum.EXPERT: headerBgClass = 'bg-indigo-50'; break;
-                }
-                switch (section.name) {
-                  case TrainingLevelEnum.EINSTEIGER: levelCircleBgClass = 'bg-fuchsia-500'; break;
-                  case TrainingLevelEnum.GRUNDLAGEN: levelCircleBgClass = 'bg-lime-500'; break;
-                  case TrainingLevelEnum.FORTGESCHRITTENE: levelCircleBgClass = 'bg-sky-500'; break;
-                  case TrainingLevelEnum.MASTERCLASS: levelCircleBgClass = 'bg-amber-500'; break;
-                  case TrainingLevelEnum.EXPERT: levelCircleBgClass = 'bg-indigo-500'; break;
-                }
-
-                const isExpanded = expandedSections[section.id];
-                return (
-                  <div key={section.id} className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                    <button
-                      className={`p-4 flex items-center justify-between w-full text-left ${headerBgClass}`}
-                      onClick={() => toggleSection(section.id)}
-                      aria-expanded={isExpanded}
-                      aria-controls={`section-content-${section.id}`}
-                    >
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                        <span className={`flex items-center justify-center h-8 w-8 rounded-full text-white font-bold text-base mr-3 ${levelCircleBgClass}`}>{section.id}</span>
-                        {section.name}
-                      </h3>
-                      <div className="flex items-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(section.status)} mr-2`}>{section.status}</span>
-                        <ChevronDownIcon className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                      </div>
-                    </button>
-                    <div id={`section-content-${section.id}`} className={`${isExpanded ? 'block' : 'hidden'} p-4 bg-white border-t border-gray-200`}>
-                      {section.name === TrainingLevelEnum.EXPERT ? (
-                        (() => {
-                          const currentHours = section.completedHours;
-                          const fullMilestones = Math.floor(currentHours / 100);
-                          const remainingHours = currentHours % 100;
-                          return (
-                            <>
-                              <p className="text-sm text-gray-600 mb-3">Fortschritt: {currentHours} Trails absolviert im Expert-Status</p>
-                              <div className="flex flex-wrap gap-2">
-                                {Array.from({ length: fullMilestones }).map((_, i) => (<HundredHourMilestoneBadge key={`milestone-${i}`} milestoneNumber={i + 1} />))}
-                                {Array.from({ length: remainingHours }).map((_, i) => (<TrainingPawIcon key={`paw-${i}`} filled={true} />))}
-                              </div>
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <>
-                          <p className="text-sm text-gray-600 mb-3">Fortschritt: {section.completedHours} / {section.requiredHours} Trails</p>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.from({ length: section.completedHours }).map((_, i) => (<TrainingPawIcon key={i} filled={true} />))}
-                            {Array.from({ length: section.requiredHours - section.completedHours }).map((_, i) => (<TrainingPawIcon key={`empty-${i}`} filled={false} />))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Trails</h2>
+            <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
+                <TrailBadges totalTrails={trainingInfo.totalTrails} />
+                <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
+                <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
             </div>
           </Card>
         </div>
@@ -491,6 +591,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setIsTransactionHistoryModalOpen(false)}
         transactions={customerTransactions}
         customerName={`${customer.firstName} ${customer.lastName}`}
+      />
+      <SetInitialTrailsModal
+        isOpen={isSetInitialTrailsModalOpen}
+        onClose={() => setIsSetInitialTrailsModalOpen(false)}
+        onSubmit={handleSetInitialTrails}
+        currentTrails={totalTrails}
       />
     </div>
   );

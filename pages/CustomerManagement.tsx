@@ -47,24 +47,6 @@ const getLevelColorClass = (level: TrainingLevelEnum) => {
   }
 };
 
-// Helper function to get color classes based on training level for the avatar circle
-const getAvatarColorForLevel = (level: TrainingLevelEnum) => {
-  switch (level) {
-    case TrainingLevelEnum.EINSTEIGER:
-      return 'bg-fuchsia-500';
-    case TrainingLevelEnum.GRUNDLAGEN:
-      return 'bg-lime-500';
-    case TrainingLevelEnum.FORTGESCHRITTENE:
-      return 'bg-sky-500';
-    case TrainingLevelEnum.MASTERCLASS:
-      return 'bg-amber-500';
-    case TrainingLevelEnum.EXPERT:
-      return 'bg-indigo-500';
-    default:
-      return 'bg-gray-400';
-  }
-};
-
 const DatabaseIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -90,6 +72,21 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const totalBalance = customers.reduce((sum, c) => sum + c.balance, 0);
 
   const today = REFERENCE_DATE;
+  const currentYear = today.getFullYear();
+
+  const totalTrailsThisYear = useMemo(() => {
+    return transactions.filter(t => {
+      if (t.description !== 'Trails') {
+        return false;
+      }
+      const transactionDate = parseDateString(t.date);
+      if (!transactionDate) {
+        return false;
+      }
+      return transactionDate.getFullYear() === currentYear;
+    }).length;
+  }, [transactions, currentYear]);
+
   const currentMonthTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const transactionDate = parseDateString(t.date);
@@ -102,8 +99,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const activeCustomerIds = useMemo(() => {
     return new Set(currentMonthTransactions.map((t) => t.customerId));
   }, [currentMonthTransactions]);
-
-  const activeCustomersCount = customers.filter((c) => activeCustomerIds.has(c.id)).length;
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
@@ -121,6 +116,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       dog: customer.dogName,
       balance: customer.balance,
       level: customer.level,
+      totalTrails: customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0),
       created_at: customer.created_at,
       dataSource: customer.dataSource,
     }));
@@ -134,7 +130,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
         <div className="flex items-center min-w-0">
           <Avatar
             initials={item.avatarInitials}
-            color={getAvatarColorForLevel(item.level)}
+            color={item.avatarColor}
             size="md"
             className="mr-3"
           />
@@ -159,7 +155,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
     },
     {
       key: 'level',
-      header: 'Level',
+      header: 'Trails',
       className: 'hidden lg:table-cell',
       render: (item: CustomerTableData) => (
         <span
@@ -167,7 +163,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
             item.level
           )}`}
         >
-          {item.level}
+          {item.totalTrails}
         </span>
       ),
     },
@@ -203,7 +199,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
         <StatCard title="Kunden Gesamt" value={totalCustomers} icon={UsersIcon} color="bg-green-100 text-green-700" />
-        <StatCard title="Aktiv" value={activeCustomersCount} icon={HeartIcon} color="bg-orange-100 text-orange-700" />
+        <StatCard title="Trails Gesamt" value={totalTrailsThisYear} icon={HeartIcon} color="bg-orange-100 text-orange-700" />
         <StatCard
           title="Guthaben"
           value={totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
@@ -265,7 +261,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
                         <div className="flex items-center min-w-0">
                           <Avatar
                             initials={c.avatarInitials}
-                            color={getAvatarColorForLevel(c.level)}
+                            color={c.avatarColor}
                             size="md"
                             className="mr-3"
                           />
@@ -291,7 +287,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
                             c.level
                           )}`}
                         >
-                          {c.level}
+                          {c.totalTrails}
                         </span>
                       </div>
 

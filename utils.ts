@@ -1,6 +1,8 @@
 
 // utils.ts
 
+import { TrainingLevelEnum } from './types';
+
 /**
  * Parses a date string in DD.MM.YYYY format into a Date object.
  * @param dateString The date string to parse.
@@ -47,4 +49,26 @@ export const isSameMonth = (date1: Date, date2: Date): boolean => {
     date1.getMonth() === date2.getMonth() &&
     date1.getFullYear() === date2.getFullYear()
   );
+};
+
+/**
+ * Helper function to get color classes based on training level for the avatar circle.
+ * @param level The training level of the customer.
+ * @returns A Tailwind CSS background color class string.
+ */
+export const getAvatarColorForLevel = (level: TrainingLevelEnum): string => {
+  switch (level) {
+    case TrainingLevelEnum.EINSTEIGER:
+      return 'bg-fuchsia-500';
+    case TrainingLevelEnum.GRUNDLAGEN:
+      return 'bg-lime-500';
+    case TrainingLevelEnum.FORTGESCHRITTENE:
+      return 'bg-sky-500';
+    case TrainingLevelEnum.MASTERCLASS:
+      return 'bg-amber-500';
+    case TrainingLevelEnum.EXPERT:
+      return 'bg-indigo-500';
+    default:
+      return 'bg-gray-400';
+  }
 };

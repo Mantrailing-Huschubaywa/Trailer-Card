@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -50,13 +51,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     } else {
       const newUserId = `user-${users.length + 1}-${Date.now()}`;
       const initials = `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}`.toUpperCase().slice(0, 2);
-      const avatarColors = ['bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-green-500', 'bg-teal-500', 'bg-fuchsia-500', 'bg-lime-500'];
-      const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
 
       const newUser: User = {
         id: newUserId,
         avatarInitials: initials,
-        avatarColor: randomColor,
+        avatarColor: 'bg-orange-500',
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
