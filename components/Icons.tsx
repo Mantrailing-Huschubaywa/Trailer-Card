@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface IconProps {
@@ -228,6 +227,10 @@ export const EyeSlashIcon: React.FC<IconProps> = ({ className = 'h-5 w-5' }) => 
 );
 
 // --- NEUE BILD-BASIERTE TRAIL-ABZEICHEN ---
+export const TrailBadgeOnTheWayIcon: React.FC<IconProps> = ({ className }) => (
+  <img src="https://hs-bw.com/wp-content/uploads/2026/01/On-the-Way.png" alt="Auf dem Weg Abzeichen" className={className} />
+);
+
 export const TrailBadge10Icon: React.FC<IconProps> = ({ className }) => (
   <img src="https://hs-bw.com/wp-content/uploads/2026/01/10er-Trail.png" alt="10 Trails Abzeichen" className={className} />
 );

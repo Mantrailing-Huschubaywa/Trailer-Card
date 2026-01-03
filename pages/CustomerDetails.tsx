@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
@@ -20,11 +19,11 @@ import {
   AwardIcon,
   UserIcon,
   EditIcon,
-  PawPrintIcon,
+  TrailBadgeOnTheWayIcon,
   TrailBadge10Icon,
   TrailBadge50Icon,
   TrailBadge100Icon,
-  TrailBadge500Icon, // NEU
+  TrailBadge500Icon,
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
@@ -126,11 +125,13 @@ const getTrainingInfoByTrails = (totalTrails: number) => {
 
 // Neue Komponente zur Anzeige der Trail-Meilenstein-Abzeichen ("Trophäensammlung")
 const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
-  // Fallback for < 10 trails: A larger, more subtle paw print.
+  // For new customers with less than 10 trails, show the "On the Way" badge.
   if (totalTrails < 10) {
     return (
       <div className="flex justify-center items-center py-4 min-h-[140px]">
-        <PawPrintIcon className="h-20 w-20 text-gray-400 opacity-60" />
+        <TrailBadgeOnTheWayIcon
+          className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
+        />
       </div>
     );
   }
