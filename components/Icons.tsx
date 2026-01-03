@@ -246,3 +246,8 @@ export const TrailBadge100Icon: React.FC<IconProps> = ({ className }) => (
 export const TrailBadge500Icon: React.FC<IconProps> = ({ className }) => (
   <img src="https://hs-bw.com/wp-content/uploads/2026/01/500er-Trail.png" alt="500 Trails Abzeichen" className={className} />
 );
+
+// --- NEUES WORKSHOP-ABZEICHEN ---
+export const WorkshopPatchIcon: React.FC<IconProps> = ({ className }) => (
+  <img src="https://hs-bw.com/wp-content/uploads/2026/01/ChatGPT-Image-3.-Jan.-2026-19_21_04.png" alt="Workshop Abzeichen" className={className} />
+);

@@ -24,6 +24,7 @@ import {
   TrailBadge50Icon,
   TrailBadge100Icon,
   TrailBadge500Icon,
+  WorkshopPatchIcon, // NEUER IMPORT
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
@@ -209,6 +210,36 @@ const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
   return (
     <div className="flex justify-center items-center flex-wrap gap-x-6 gap-y-4 py-4 min-h-[140px]">
       {badgeGroups}
+    </div>
+  );
+};
+
+// NEUE KOMPONENTE: Anzeige der Workshop-Abzeichen
+const WorkshopPatches: React.FC<{ totalWorkshops: number }> = ({ totalWorkshops }) => {
+  if (totalWorkshops === 0) {
+    return (
+      <div className="flex justify-center items-center py-4 min-h-[140px]">
+        <p className="text-gray-500 italic text-sm text-center">Keine Workshops absolviert</p>
+      </div>
+    );
+  }
+
+  const patches = [];
+  // Zeigt bis zu 3 Patches überlappend an, um den Platz nicht zu sprengen
+  const displayCount = Math.min(totalWorkshops, 3); 
+  for (let i = 0; i < displayCount; i++) {
+    patches.push(
+      <div key={`workshop-${i}`} className="relative first:ml-0 -ml-12">
+        <WorkshopPatchIcon
+          className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-center items-center flex-wrap py-4 min-h-[140px]">
+      <div className="flex items-center">{patches}</div>
     </div>
   );
 };
@@ -488,6 +519,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   );
 
   const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+  const totalWorkshops = customerTransactions.filter(t => t.description === 'Workshop').length;
   const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
   const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
@@ -566,11 +598,20 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Trails</h2>
-            <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
-                <TrailBadges totalTrails={trainingInfo.totalTrails} />
-                <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
-                <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Erfolge</h2>
+            <div className="flex space-x-4">
+              {/* Trails Container (2/3) */}
+              <div className="w-2/3 bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
+                  <TrailBadges totalTrails={trainingInfo.totalTrails} />
+                  <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
+                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
+              </div>
+              {/* Workshops Container (1/3) */}
+              <div className="w-1/3 bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
+                  <WorkshopPatches totalWorkshops={totalWorkshops} />
+                  <p className="text-5xl font-bold text-slate-800">{totalWorkshops}</p>
+                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Workshops</p>
+              </div>
             </div>
           </Card>
         </div>
