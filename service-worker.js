@@ -4,6 +4,7 @@ const CACHE_NAME = 'mantrailing-card-cache-v1';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/index.tsx', // Wichtig: Haupt-Skript hinzufügen
   '/manifest.json',
   'https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png',
   // Die JS/TSX-Dateien werden durch den Browser-Cache und das Build-System gehandhabt,
