@@ -24,48 +24,71 @@ import {
   TrailBadge50Icon,
   TrailBadge100Icon,
   TrailBadge500Icon,
-  WorkshopPatchIcon, // NEUER IMPORT
+  SeminarEventPatchIcon,
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
 import { getAvatarColorForLevel, parseDateString } from '../utils';
 
-// --- NEUES MODAL FÜR STARTWERT ---
-interface SetInitialTrailsModalProps {
+// --- NEUES MODAL FÜR STARTWERTE ---
+interface SetInitialValuesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (totalTrails: number) => void;
+  onSubmit: (totalTrails: number, totalSeminars: number) => void;
   currentTrails: number;
+  currentSeminars: number;
 }
 
-const SetInitialTrailsModal: React.FC<SetInitialTrailsModalProps> = ({ isOpen, onClose, onSubmit, currentTrails }) => {
+const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, currentTrails, currentSeminars }) => {
   const [trails, setTrails] = useState(currentTrails.toString());
-  const [error, setError] = useState('');
+  const [seminars, setSeminars] = useState(currentSeminars.toString());
+  const [trailsError, setTrailsError] = useState('');
+  const [seminarsError, setSeminarsError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setTrails(currentTrails.toString());
-      setError('');
+      setSeminars(currentSeminars.toString());
+      setTrailsError('');
+      setSeminarsError('');
     }
-  }, [isOpen, currentTrails]);
+  }, [isOpen, currentTrails, currentSeminars]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const numTrails = parseInt(trails, 10);
+    const numSeminars = parseInt(seminars, 10);
+    let hasError = false;
+
     if (isNaN(numTrails) || numTrails < 0) {
-      setError('Bitte geben Sie eine gültige, positive Zahl ein.');
-      return;
+      setTrailsError('Bitte eine gültige, positive Zahl eingeben.');
+      hasError = true;
+    } else {
+      setTrailsError('');
     }
-    onSubmit(numTrails);
+
+    if (isNaN(numSeminars) || numSeminars < 0) {
+      setSeminarsError('Bitte eine gültige, positive Zahl eingeben.');
+      hasError = true;
+    } else if (numSeminars < currentSeminars) {
+      setSeminarsError('Die Anzahl kann nur erhöht werden.');
+      hasError = true;
+    } else {
+      setSeminarsError('');
+    }
+
+    if (!hasError) {
+      onSubmit(numTrails, numSeminars);
+    }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Startwert für Trails festlegen" className="max-w-md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Startwerte festlegen" className="max-w-md">
       <form onSubmit={handleSubmit} className="p-0">
         <div className="space-y-4">
           <p className="text-gray-600">
-            Geben Sie die Gesamtzahl der Trails ein, die dieser Kunde bereits absolviert hat.
-            Der Fortschritt wird entsprechend neu berechnet.
+            Geben Sie die Gesamtzahl der Trails und Seminare/Events ein, die dieser Kunde bereits absolviert hat.
+            Der Fortschritt und die Zählung werden entsprechend angepasst.
           </p>
           <Input
             id="totalTrails"
@@ -74,16 +97,28 @@ const SetInitialTrailsModal: React.FC<SetInitialTrailsModalProps> = ({ isOpen, o
             value={trails}
             onChange={(e) => setTrails(e.target.value)}
             min="0"
-            error={error}
+            error={trailsError}
             autoFocus
           />
+          <Input
+            id="totalSeminars"
+            label="Gesamtzahl der Seminare & Events"
+            type="number"
+            value={seminars}
+            onChange={(e) => setSeminars(e.target.value)}
+            min={currentSeminars.toString()}
+            error={seminarsError}
+          />
+           <p className="text-xs text-gray-500 -mt-2 ml-1">
+            Hinweis: Die Anzahl der Seminare kann nur erhöht werden, da sie auf abgeschlossenen Transaktionen basiert.
+          </p>
         </div>
         <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">
           <Button variant="outline" type="button" onClick={onClose}>
             Abbrechen
           </Button>
           <Button variant="success" type="submit">
-            Speichern und neu berechnen
+            Speichern und anpassen
           </Button>
         </div>
       </form>
@@ -214,23 +249,21 @@ const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
   );
 };
 
-// NEUE KOMPONENTE: Anzeige der Workshop-Abzeichen
-const WorkshopPatches: React.FC<{ totalWorkshops: number }> = ({ totalWorkshops }) => {
-  if (totalWorkshops === 0) {
+// NEUE KOMPONENTE: Anzeige der Seminar/Event-Abzeichen
+const SeminarEventPatches: React.FC<{ totalSeminars: number }> = ({ totalSeminars }) => {
+  if (totalSeminars === 0) {
     return (
       <div className="flex justify-center items-center py-4 min-h-[140px]">
-        <p className="text-gray-500 italic text-sm text-center">Keine Workshops absolviert</p>
+        <p className="text-gray-500 italic text-sm text-center">Keine Seminare/Events absolviert</p>
       </div>
     );
   }
 
   const patches = [];
-  // Zeigt bis zu 3 Patches überlappend an, um den Platz nicht zu sprengen
-  const displayCount = Math.min(totalWorkshops, 3); 
-  for (let i = 0; i < displayCount; i++) {
+  for (let i = 0; i < totalSeminars; i++) {
     patches.push(
-      <div key={`workshop-${i}`} className="relative first:ml-0 -ml-12">
-        <WorkshopPatchIcon
+      <div key={`seminar-${i}`} className="relative first:ml-0 -ml-12">
+        <SeminarEventPatchIcon
           className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
         />
       </div>
@@ -269,7 +302,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isSetInitialTrailsModalOpen, setIsSetInitialTrailsModalOpen] = useState(false); // Neuer State
+  const [isSetInitialValuesModalOpen, setIsSetInitialValuesModalOpen] = useState(false);
 
   useEffect(() => {
     setIsLoadingCustomer(true);
@@ -434,26 +467,27 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleSetInitialTrails = (newTotalTrails: number) => {
+  const handleSetInitialValues = (newTotalTrails: number, newTotalSeminars: number) => {
     if (!customer) return;
-
+  
+    // --- Trail Logic (recalculate progress) ---
     const levelsConfig = [
         { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
         { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
         { name: TrainingLevelEnum.FORTGESCHRITTENE, required: 12 },
         { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
-        { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER }, // FIX: No upper limit for experts
+        { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
     ];
-
+  
     let remainingTrails = newTotalTrails;
     let newTrainingProgress: TrainingSection[] = [];
     let hasFoundCurrent = false;
-
+  
     for (let i = 0; i < levelsConfig.length; i++) {
         const levelConf = levelsConfig[i];
         const completed = Math.min(remainingTrails, levelConf.required);
         remainingTrails -= completed;
-
+  
         let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
         if (completed > 0 && !hasFoundCurrent) {
             if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
@@ -463,12 +497,11 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 status = 'Abgeschlossen';
             }
         }
-        
-        if (!hasFoundCurrent && i > 0 && newTrainingProgress[i-1]?.status === 'Abgeschlossen') {
+        if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
             status = 'Aktuell';
             hasFoundCurrent = true;
         }
-
+  
         newTrainingProgress.push({
             id: i + 1,
             name: levelConf.name,
@@ -477,24 +510,24 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             status,
         });
     }
-    
+  
     if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
         newTrainingProgress[0].status = 'Aktuell';
     }
-
+  
     const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
-    
+  
     const finalUpdatedCustomer: Customer = {
         ...customer,
         trainingProgress: newTrainingProgress,
         level: newTrainingInfo.level,
         avatarColor: getAvatarColorForLevel(newTrainingInfo.level),
-        totalTransactions: customer.totalTransactions + 1,
+        totalTransactions: customer.totalTransactions + 1, // Add one for the summary transaction
     };
-    
+  
     onUpdateCustomer(finalUpdatedCustomer);
-
-    const newTransaction: Omit<Transaction, 'created_at'> = {
+  
+    const trailTransaction: Omit<Transaction, 'created_at'> = {
         id: `trx-${transactions.length + 1}-${Date.now()}`,
         customerId: customer.id,
         type: 'debit',
@@ -503,9 +536,35 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         date: REFERENCE_DATE.toLocaleDateString('de-DE'),
         employee: `${currentUser.firstName} ${currentUser.lastName}`,
     };
-    onAddTransaction(newTransaction);
-    
-    setIsSetInitialTrailsModalOpen(false);
+    onAddTransaction(trailTransaction);
+
+    // --- Seminar Logic (add transactions to match count) ---
+    const currentSeminars = customerTransactions.filter(t => t.description === 'Workshop').length;
+    const seminarsToAdd = newTotalSeminars - currentSeminars;
+
+    if (seminarsToAdd > 0) {
+      for (let i = 0; i < seminarsToAdd; i++) {
+        // Ensure unique ID for each new transaction
+        const newSeminarTransaction: Omit<Transaction, 'created_at'> = {
+          id: `trx-${transactions.length + 2 + i}-${Date.now()}`, 
+          customerId: customer.id,
+          type: 'debit',
+          description: 'Workshop (Bestandsübernahme)',
+          amount: 0,
+          date: REFERENCE_DATE.toLocaleDateString('de-DE'),
+          employee: `${currentUser.firstName} ${currentUser.lastName}`,
+        };
+        onAddTransaction(newSeminarTransaction);
+      }
+       // Update total transaction count on the customer object after adding seminars
+       const updatedCustomerWithSeminars = {
+        ...finalUpdatedCustomer,
+        totalTransactions: finalUpdatedCustomer.totalTransactions + seminarsToAdd,
+      };
+      onUpdateCustomer(updatedCustomerWithSeminars);
+    }
+  
+    setIsSetInitialValuesModalOpen(false);
   };
 
   const DataRow: React.FC<{ Icon: React.ElementType; label: string; value: string | number }> = ({ Icon, label, value }) => (
@@ -519,7 +578,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   );
 
   const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
-  const totalWorkshops = customerTransactions.filter(t => t.description === 'Workshop').length;
+  const totalSeminarsAndEvents = customerTransactions.filter(t => t.description === 'Workshop').length;
   const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
   const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
@@ -534,18 +593,27 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <ArrowLeftIcon className="h-6 w-6" />
             </button>
           )}
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            {customer.firstName} {customer.lastName}
-            <span className="text-gray-500 font-normal text-base ml-2">
-              {isCustomerViewing ? "Meine Übersicht" : "Kundendetails & Übersicht"}
-            </span>
-          </h1>
+          {isCustomerViewing ? (
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Hallo, {customer.firstName} {customer.lastName}!
+              </h1>
+              <p className="text-gray-600">Meine Übersicht</p>
+            </div>
+          ) : (
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+              {customer.firstName} {customer.lastName}
+              <span className="text-gray-500 font-normal text-base ml-2">
+                Kundendetails & Übersicht
+              </span>
+            </h1>
+          )}
         </div>
         
         <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
           {canPerformActions && (
             <>
-              <Button variant="outline" onClick={() => setIsSetInitialTrailsModalOpen(true)}>Startwert festlegen</Button>
+              <Button variant="outline" onClick={() => setIsSetInitialValuesModalOpen(true)}>Startwert festlegen</Button>
               <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>Stammdaten</Button>
               <Button variant="success" onClick={() => setShowTransactionTypeModal(true)}>Transaktionen</Button>
             </>
@@ -597,23 +665,24 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
           </Card>
 
-          <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Erfolge</h2>
-            <div className="flex space-x-4">
-              {/* Trails Container (2/3) */}
-              <div className="w-2/3 bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
-                  <TrailBadges totalTrails={trainingInfo.totalTrails} />
-                  <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
-                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
-              </div>
-              {/* Workshops Container (1/3) */}
-              <div className="w-1/3 bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center">
-                  <WorkshopPatches totalWorkshops={totalWorkshops} />
-                  <p className="text-5xl font-bold text-slate-800">{totalWorkshops}</p>
-                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Workshops</p>
-              </div>
-            </div>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Trails</h2>
+                <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
+                    <TrailBadges totalTrails={trainingInfo.totalTrails} />
+                    <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
+                    <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
+                </div>
+            </Card>
+            <Card>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Seminare und Events</h2>
+                <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
+                    <SeminarEventPatches totalSeminars={totalSeminarsAndEvents} />
+                    <p className="text-5xl font-bold text-slate-800">{totalSeminarsAndEvents}</p>
+                    <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Seminare und Events</p>
+                </div>
+            </Card>
+          </div>
         </div>
         <div className="lg:col-span-1 space-y-6">
           <Card>
@@ -655,11 +724,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         transactions={customerTransactions}
         customerName={`${customer.firstName} ${customer.lastName}`}
       />
-      <SetInitialTrailsModal
-        isOpen={isSetInitialTrailsModalOpen}
-        onClose={() => setIsSetInitialTrailsModalOpen(false)}
-        onSubmit={handleSetInitialTrails}
+      <SetInitialValuesModal
+        isOpen={isSetInitialValuesModalOpen}
+        onClose={() => setIsSetInitialValuesModalOpen(false)}
+        onSubmit={handleSetInitialValues}
         currentTrails={totalTrails}
+        currentSeminars={totalSeminarsAndEvents}
       />
     </div>
   );

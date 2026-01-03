@@ -247,7 +247,7 @@ export const TrailBadge500Icon: React.FC<IconProps> = ({ className }) => (
   <img src="https://hs-bw.com/wp-content/uploads/2026/01/500er-Trail.png" alt="500 Trails Abzeichen" className={className} />
 );
 
-// --- NEUES WORKSHOP-ABZEICHEN ---
-export const WorkshopPatchIcon: React.FC<IconProps> = ({ className }) => (
-  <img src="https://hs-bw.com/wp-content/uploads/2026/01/ChatGPT-Image-3.-Jan.-2026-19_21_04.png" alt="Workshop Abzeichen" className={className} />
+// --- NEUES SEMINAR/EVENT-ABZEICHEN ---
+export const SeminarEventPatchIcon: React.FC<IconProps> = ({ className }) => (
+  <img src="https://hs-bw.com/wp-content/uploads/2026/01/Seminare-und-Events.png" alt="Seminar und Event Abzeichen" className={className} />
 );

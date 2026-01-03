@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Modal from './Modal';
 import Button from './Button';
@@ -59,7 +58,7 @@ const TransactionTypeSelectionModal: React.FC<TransactionTypeSelectionModalProps
             disabled={isWorkshopDisabled}
             title={isWorkshopDisabled ? `Nicht genügend Guthaben. Benötigt: ${WORKSHOP_COST.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}` : ''}
           >
-            Workshop
+            Seminar/Event
           </Button>
         </div>
         {(isTrailDisabled || isWorkshopDisabled) && (
