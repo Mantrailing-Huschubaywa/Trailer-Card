@@ -457,7 +457,7 @@ const App: React.FC = () => {
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
-                  <Route path="/reports" element={<Reports customers={customers} transactions={transactions} />} />
+                  <Route path="/reports" element={<Reports customers={customers} transactions={transactions} users={users} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
                 </>

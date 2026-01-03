@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
 import Button from '../components/Button';
 import Select from '../components/Select';
 import Avatar from '../components/Avatar';
-import { MOCK_REPORT_TYPES, MOCK_REPORT_EMPLOYEES, MOCK_TRANSACTION_FILTERS, REFERENCE_DATE } from '../constants';
+import { MOCK_REPORT_TYPES, MOCK_TRANSACTION_FILTERS, REFERENCE_DATE } from '../constants';
 import { ArrowUpCircleIcon, ArrowDownCircleIcon, DollarSignIcon, ClipboardIcon, UsersIcon } from '../components/Icons';
 import { parseDateString, isSameMonth } from '../utils';
-import { Customer, Transaction } from '../types';
+import { Customer, Transaction, User, UserRoleEnum } from '../types';
 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; // Import jspdf-autotable plugin
@@ -16,6 +16,7 @@ import 'jspdf-autotable'; // Import jspdf-autotable plugin
 interface ReportsProps {
   customers: Customer[];
   transactions: Transaction[];
+  users: User[];
 }
 
 // Helper function to generate dynamic report periods
@@ -49,7 +50,7 @@ const generateReportPeriods = (reportType: string, referenceDate: Date) => {
 };
 
 
-const Reports: React.FC<ReportsProps> = ({ customers, transactions }) => {
+const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => {
   const [reportType, setReportType] = useState('Monatlich');
   const [employee, setEmployee] = useState('Alle Mitarbeiter');
   const [transactionFilter, setTransactionFilter] = useState('Alle Transaktionen'); // New state for transaction type filter
@@ -69,6 +70,17 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions }) => {
       setTimePeriod('Gesamt'); // Fallback
     }
   }, [reportType]);
+
+  // Dynamically generate employee options from the users prop
+  const employeeOptions = useMemo(() => {
+    const staff = users
+      .filter(u => u.role === UserRoleEnum.ADMIN || u.role === UserRoleEnum.MITARBEITER)
+      .map(u => ({
+        value: `${u.firstName} ${u.lastName}`,
+        label: `${u.firstName} ${u.lastName}`,
+      }));
+    return [{ value: 'Alle Mitarbeiter', label: 'Alle Mitarbeiter' }, ...staff];
+  }, [users]);
 
 
   // Helper for parsing current filter period
@@ -96,34 +108,36 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions }) => {
   const selectedFilterPeriod = getFilterPeriodDate();
 
   // Filter transactions based on selected criteria
-  const filteredTransactions = transactions.filter(t => {
-    const transactionDate = parseDateString(t.date);
-    if (!transactionDate) return false;
+  const filteredTransactions = transactions
+    .filter(t => {
+      const transactionDate = parseDateString(t.date);
+      if (!transactionDate) return false;
 
-    // Filter by period
-    let matchesPeriod = true;
-    if (timePeriod === 'Gesamt') {
-      matchesPeriod = true;
-    } else if (reportType === 'Monatlich' && selectedFilterPeriod) {
-      matchesPeriod = isSameMonth(transactionDate, selectedFilterPeriod);
-    } else if (reportType === 'Jährlich' && selectedFilterPeriod) {
-      matchesPeriod = transactionDate.getFullYear() === selectedFilterPeriod.getFullYear();
-    }
+      // Filter by period
+      let matchesPeriod = true;
+      if (timePeriod === 'Gesamt') {
+        matchesPeriod = true;
+      } else if (reportType === 'Monatlich' && selectedFilterPeriod) {
+        matchesPeriod = isSameMonth(transactionDate, selectedFilterPeriod);
+      } else if (reportType === 'Jährlich' && selectedFilterPeriod) {
+        matchesPeriod = transactionDate.getFullYear() === selectedFilterPeriod.getFullYear();
+      }
 
 
-    // Filter by employee
-    const matchesEmployee = employee === 'Alle Mitarbeiter' || t.employee === employee;
+      // Filter by employee
+      const matchesEmployee = employee === 'Alle Mitarbeiter' || t.employee === employee;
 
-    // Filter by transaction type
-    let matchesTransactionType = true;
-    if (transactionFilter === 'Einnahmen (Aufladungen)') {
-      matchesTransactionType = t.type === 'recharge';
-    } else if (transactionFilter === 'Ausgaben (Abbuchungen)') {
-      matchesTransactionType = t.type === 'debit';
-    }
+      // Filter by transaction type
+      let matchesTransactionType = true;
+      if (transactionFilter === 'Einnahmen (Aufladungen)') {
+        matchesTransactionType = t.type === 'recharge';
+      } else if (transactionFilter === 'Ausgaben (Abbuchungen)') {
+        matchesTransactionType = t.type === 'debit';
+      }
 
-    return matchesPeriod && matchesEmployee && matchesTransactionType;
-  });
+      return matchesPeriod && matchesEmployee && matchesTransactionType;
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Dynamic calculations for Report Stats
   const monthlyRecharges = filteredTransactions
@@ -245,31 +259,6 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions }) => {
         },
       });
 
-      yPos = (doc as any).autoTable.previous.finalY + 15;
-
-      // Top Customers Table
-      doc.setFontSize(16);
-      doc.text('Top Kunden im Zeitraum', 20, yPos);
-      yPos += 5;
-
-      const topCustomersHeaders = [['Rang', 'Kunde', 'Hund', 'Transaktionen', 'Gesamtbetrag']];
-      const topCustomersData = topCustomers.map((c, index) => [
-        index + 1,
-        c.customerName,
-        c.dogName,
-        c.transactionCount,
-        c.totalAmount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
-      ]);
-
-      (doc as any).autoTable({
-        startY: yPos,
-        head: topCustomersHeaders,
-        body: topCustomersData,
-        theme: 'striped',
-        headStyles: { fillColor: [0, 161, 214] }, // Blue color for header
-        margin: { top: 10, right: 20, bottom: 10, left: 20 },
-      });
-
       const fileName = `Bericht_${reportType.replace(' ', '_')}_${timePeriod.replace(' ', '_')}_${employee.replace(' ', '_')}_${transactionFilter.replace(' ', '_')}.pdf`;
       doc.save(fileName);
       alert('PDF Export erfolgreich!');
@@ -308,7 +297,7 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions }) => {
           <Select
             id="employee"
             label="Mitarbeiter"
-            options={MOCK_REPORT_EMPLOYEES.map(emp => ({ value: emp, label: emp }))}
+            options={employeeOptions}
             value={employee}
             onChange={(e) => setEmployee(e.target.value)}
             disabled={isGeneratingPdf}

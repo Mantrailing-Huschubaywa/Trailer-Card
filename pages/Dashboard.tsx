@@ -49,12 +49,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
 
   // Letzte Transaktionen (max 5, scrollable)
   const latestTransactions = [...transactions]
-    .sort((a, b) => {
-      const dateA = parseDateString(a.date);
-      const dateB = parseDateString(b.date);
-      if (!dateA || !dateB) return 0; // Handle invalid dates
-      return dateB.getTime() - dateA.getTime(); // Sort descending
-    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5); // Take top 5
     
   const welcomeMessage = currentUser ? `Hallo, ${currentUser.firstName}!` : 'Willkommen!';

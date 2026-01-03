@@ -26,9 +26,9 @@ import {
   TrailBadge100Icon,
   TrailBadge500Icon, // NEU
 } from '../components/Icons';
-import { CURRENT_EMPLOYEE, REFERENCE_DATE } from '../constants';
+import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
-import { getAvatarColorForLevel } from '../utils';
+import { getAvatarColorForLevel, parseDateString } from '../utils';
 
 // --- NEUES MODAL FÜR STARTWERT ---
 interface SetInitialTrailsModalProps {
@@ -260,11 +260,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   // Filter and sort transactions for the current customer
   const customerTransactions = transactions
     .filter(t => t.customerId === id)
-    .sort((a, b) => {
-      const dateA = new Date(a.date.split('.').reverse().join('-'));
-      const dateB = new Date(b.date.split('.').reverse().join('-'));
-      return dateB.getTime() - dateA.getTime();
-    });
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   if (!id) {
     return (
@@ -298,7 +294,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTransactionData({
       customerId: customer.id,
       customerName: `${customer.firstName} ${customer.lastName}`,
-      employee: CURRENT_EMPLOYEE,
+      employee: `${currentUser.firstName} ${currentUser.lastName}`,
       transactionType: type,
       amount: amount,
       oldBalance: oldBalance,
@@ -316,6 +312,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     finalUpdatedCustomer.totalTransactions = customer.totalTransactions + 1;
 
     const isRecharge = transactionData.transactionType === 'Aufladung';
+    // WICHTIG: Diese Logik wird nur ausgeführt, wenn es sich um eine "Trails"-Abbuchung handelt.
+    // Eine "Workshop"-Abbuchung wird diesen Block überspringen und nur das Guthaben anpassen.
     if (!isRecharge && transactionData.description === 'Trails' && transactionData.amount === 18) {
       const currentTrainingProgress: TrainingSection[] = JSON.parse(JSON.stringify(customer.trainingProgress));
       
@@ -358,21 +356,43 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       id: `trx-${transactions.length + 1}-${Date.now()}`,
       customerId: customer.id,
       type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
-      description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Trails'),
+      description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Unbekannt'),
       amount: transactionData.amount,
       date: REFERENCE_DATE.toLocaleDateString('de-DE'),
-      employee: CURRENT_EMPLOYEE,
+      employee: `${currentUser.firstName} ${currentUser.lastName}`,
     };
     onAddTransaction(newTransaction);
     setShowConfirmationModal(false);
     setTransactionData(null);
   };
   
-  const handleSelectTransactionType = (type: 'Aufladung' | 'Abbuchung') => {
+  const handleSelectTransactionType = (type: 'Aufladung' | 'Trails' | 'Workshop') => {
     setShowTransactionTypeModal(false);
-    let defaultAmount = type === 'Aufladung' ? 215 : 18;
-    let description = type === 'Aufladung' ? 'Guthabenaufladung' : 'Trails';
-    handleOpenConfirmationModal(defaultAmount, type, description);
+    if (!customer) return;
+
+    let amount = 0;
+    let description = '';
+    let transactionType: 'Aufladung' | 'Abbuchung' = 'Abbuchung';
+
+    switch (type) {
+      case 'Aufladung':
+        amount = 215;
+        description = 'Guthabenaufladung';
+        transactionType = 'Aufladung';
+        break;
+      case 'Trails':
+        amount = 18;
+        description = 'Trails';
+        transactionType = 'Abbuchung';
+        break;
+      case 'Workshop':
+        amount = 36;
+        description = 'Workshop';
+        transactionType = 'Abbuchung';
+        break;
+    }
+
+    handleOpenConfirmationModal(amount, transactionType, description);
   };
   
   const handleUpdateStammdaten = (data: NewCustomerData) => {
@@ -449,7 +469,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         description: `Bestandsübernahme: ${newTotalTrails} Trails`,
         amount: 0,
         date: REFERENCE_DATE.toLocaleDateString('de-DE'),
-        employee: CURRENT_EMPLOYEE,
+        employee: `${currentUser.firstName} ${currentUser.lastName}`,
     };
     onAddTransaction(newTransaction);
     
@@ -579,6 +599,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         isOpen={showTransactionTypeModal}
         onClose={() => setShowTransactionTypeModal(false)}
         onSelectType={handleSelectTransactionType}
+        customerBalance={customer.balance}
       />
       <CustomerFormModal
         isOpen={isEditModalOpen}
