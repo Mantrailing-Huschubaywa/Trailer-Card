@@ -40,5 +40,19 @@
 <body class="font-sans bg-gray-100 text-gray-800">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      // Service Worker Registrierung
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('ServiceWorker erfolgreich registriert mit Scope: ', registration.scope);
+            })
+            .catch(err => {
+              console.log('ServiceWorker Registrierung fehlgeschlagen: ', err);
+            });
+        });
+      }
+    </script>
 </body>
 </html>

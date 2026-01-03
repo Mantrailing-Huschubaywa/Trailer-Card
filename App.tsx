@@ -14,6 +14,8 @@ import { REFERENCE_DATE } from './constants';
 import { USE_MOCK_DATA } from './config';
 import { getSupabaseClient } from './supabaseClient';
 import { getAvatarColorForLevel } from './utils';
+import Button from './components/Button';
+import { PlusIcon } from './components/Icons';
 
 // Helper function to safely parse customer data from Supabase
 const parseCustomerData = (c: any): Customer => {
@@ -70,6 +72,23 @@ const MobileHeader: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSideb
   </header>
 );
 
+// Install Prompt Banner Component
+const InstallPrompt: React.FC<{ onInstall: () => void; onDismiss: () => void; }> = ({ onInstall, onDismiss }) => (
+  <div className="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-4 shadow-lg z-50 flex items-center justify-between animate-fade-in-up">
+    <div className="flex items-center">
+      <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-10 w-10 mr-4 rounded-[10px]" />
+      <div>
+        <h4 className="font-bold">App installieren</h4>
+        <p className="text-sm text-gray-300">Für schnellen Zugriff auf Ihrem Gerät hinzufügen.</p>
+      </div>
+    </div>
+    <div className="flex space-x-2">
+      <Button onClick={onDismiss} variant="ghost" size="sm" className="text-gray-300 hover:bg-gray-700">Später</Button>
+      <Button onClick={onInstall} variant="primary" size="sm" icon={PlusIcon}>Installieren</Button>
+    </div>
+  </div>
+);
+
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -79,6 +98,7 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
 
   const navigate = useNavigate();
   const location = useLocation(); // Get current location for deep linking
@@ -86,6 +106,39 @@ const App: React.FC = () => {
 
   const toggleMobileSidebar = () => setIsMobileSidebarOpen(prev => !prev);
   const closeMobileSidebar = () => setIsMobileSidebarOpen(false);
+  
+  // Effect for PWA installation prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault(); // Prevent the default browser prompt
+      setInstallPromptEvent(e); // Store the event
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = () => {
+    if (installPromptEvent) {
+      installPromptEvent.prompt(); // Show the installation prompt
+      installPromptEvent.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('Benutzer hat die Installation akzeptiert');
+        } else {
+          console.log('Benutzer hat die Installation abgelehnt');
+        }
+        setInstallPromptEvent(null); // The prompt can only be used once
+      });
+    }
+  };
+
+  const handleDismissInstall = () => {
+    setInstallPromptEvent(null);
+  };
 
   // Effect 1: Manages the session from Supabase auth. This is the single source of truth for auth state.
   useEffect(() => {
@@ -425,6 +478,9 @@ const App: React.FC = () => {
               )}
             </Routes>
           </main>
+          {installPromptEvent && (
+             <InstallPrompt onInstall={handleInstallClick} onDismiss={handleDismissInstall} />
+          )}
         </>
       ) : (
         <Routes>

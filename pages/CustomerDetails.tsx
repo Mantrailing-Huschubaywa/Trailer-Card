@@ -489,7 +489,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </h1>
         </div>
         
-        <div className="flex space-x-3">
+        <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
           {canPerformActions && (
             <>
               <Button variant="outline" onClick={() => setIsSetInitialTrailsModalOpen(true)}>Startwert festlegen</Button>
