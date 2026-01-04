@@ -10,6 +10,7 @@ import TransactionConfirmationModal from '../components/TransactionConfirmationM
 import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
+import BankDetailsModal from '../components/BankDetailsModal'; // NEU
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -25,6 +26,7 @@ import {
   TrailBadge100Icon,
   TrailBadge500Icon,
   SeminarEventPatchIcon,
+  BankIcon, // NEU
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
@@ -303,6 +305,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSetInitialValuesModalOpen, setIsSetInitialValuesModalOpen] = useState(false);
+  const [isBankDetailsModalOpen, setIsBankDetailsModalOpen] = useState(false); // NEU
 
   useEffect(() => {
     setIsLoadingCustomer(true);
@@ -619,7 +622,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </>
           )}
           {isCustomerViewing && (
-            <Button variant="primary" icon={EditIcon} onClick={() => setIsEditModalOpen(true)}>Meine Daten bearbeiten</Button>
+            <Button variant="primary" icon={EditIcon} onClick={() => setIsEditModalOpen(true)}>
+                Meine Daten bearbeiten
+            </Button>
           )}
         </div>
       </div>
@@ -691,6 +696,18 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{new Date(customer.created_at).toLocaleDateString('de-DE')}</span></div>
               <div className="flex justify-between"><span>Kunden-ID</span><span className="font-bold">{customer.id}</span></div>
             </div>
+            {isCustomerViewing && (
+                <div className="mt-6 border-t pt-4">
+                <Button
+                    variant="customTeal"
+                    icon={BankIcon}
+                    onClick={() => setIsBankDetailsModalOpen(true)}
+                    className="w-full"
+                >
+                    Bankverbindung für Aufladung
+                </Button>
+                </div>
+            )}
           </Card>
 
           <Card className="text-center">
@@ -730,6 +747,11 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onSubmit={handleSetInitialValues}
         currentTrails={totalTrails}
         currentSeminars={totalSeminarsAndEvents}
+      />
+       <BankDetailsModal
+        isOpen={isBankDetailsModalOpen}
+        onClose={() => setIsBankDetailsModalOpen(false)}
+        customer={customer}
       />
     </div>
   );

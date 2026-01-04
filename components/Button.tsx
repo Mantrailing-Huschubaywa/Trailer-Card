@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'danger' | 'info';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'danger' | 'info' | 'customTeal';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ElementType; // An SVG icon component
   children: React.ReactNode;
@@ -26,6 +25,7 @@ const Button: React.FC<ButtonProps> = ({
     success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
     info: 'bg-sky-100 text-sky-800 hover:bg-sky-200 focus:ring-sky-300',
+    customTeal: 'bg-[#48AC98] text-white hover:bg-[#3f9685] focus:ring-[#48AC98]',
   };
 
   const sizeClasses = {
