@@ -444,7 +444,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
     switch (type) {
       case 'Aufladung':
-        amount = 215;
+        amount = 216;
         description = 'Guthabenaufladung';
         transactionType = 'Aufladung';
         break;
