@@ -48,12 +48,12 @@ const BankDetailsModal: React.FC<BankDetailsModalProps> = ({ isOpen, onClose, cu
 
   const InfoRow: React.FC<{ label: string; value: string; onCopy?: () => void; isCopied?: boolean }> = 
     ({ label, value, onCopy, isCopied: copied }) => (
-    <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 items-center">
+    <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-center">
       <dt className="text-base font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 flex text-base text-gray-900 sm:mt-0 sm:col-span-2">
-        <span className={`flex-grow font-mono ${label === 'Empfänger' ? 'whitespace-pre-line' : 'whitespace-nowrap'}`}>{value}</span>
+      <dd className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between text-base text-gray-900 sm:mt-0 sm:col-span-2">
+        <span className={`font-mono ${label === 'Empfänger' ? 'whitespace-pre-line' : 'whitespace-nowrap'}`}>{value}</span>
         {onCopy && (
-          <span className="ml-4 flex-shrink-0">
+          <div className="mt-2 sm:mt-0">
             <button
               type="button"
               onClick={onCopy}
@@ -71,7 +71,7 @@ const BankDetailsModal: React.FC<BankDetailsModalProps> = ({ isOpen, onClose, cu
                 </>
               )}
             </button>
-          </span>
+          </div>
         )}
       </dd>
     </div>
