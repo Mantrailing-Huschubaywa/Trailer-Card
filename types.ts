@@ -20,7 +20,6 @@ export interface Customer {
   qrCodeData: string; // URL for QR code image
   documents: Document[];
   trainingProgress: TrainingSection[];
-  dataSource?: 'mock' | 'db'; // NEU: Zur Kennzeichnung der Datenquelle
 }
 
 // New type for the customer editing form
@@ -90,7 +89,6 @@ export interface CustomerTableData {
   level: TrainingLevelEnum;
   totalTrails: number;
   created_at: string;
-  dataSource?: 'mock' | 'db'; // NEU: Zur Kennzeichnung in der Tabelle
 }
 
 export interface TransactionConfirmationData {

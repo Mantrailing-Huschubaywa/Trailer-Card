@@ -72,9 +72,6 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
     if (isNaN(numSeminars) || numSeminars < 0) {
       setSeminarsError('Bitte eine gültige, positive Zahl eingeben.');
       hasError = true;
-    } else if (numSeminars < currentSeminars) {
-      setSeminarsError('Die Anzahl kann nur erhöht werden.');
-      hasError = true;
     } else {
       setSeminarsError('');
     }
@@ -108,11 +105,11 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
             type="number"
             value={seminars}
             onChange={(e) => setSeminars(e.target.value)}
-            min={currentSeminars.toString()}
+            min="0"
             error={seminarsError}
           />
            <p className="text-xs text-gray-500 -mt-2 ml-1">
-            Hinweis: Die Anzahl der Seminare kann nur erhöht werden, da sie auf abgeschlossenen Transaktionen basiert.
+            Hinweis: Diese Zahl passt die Anzahl der übernommenen Seminare an. Regulär gebuchte Seminare bleiben unberührt.
           </p>
         </div>
         <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">
@@ -261,20 +258,33 @@ const SeminarEventPatches: React.FC<{ totalSeminars: number }> = ({ totalSeminar
     );
   }
 
-  const patches = [];
-  for (let i = 0; i < totalSeminars; i++) {
-    patches.push(
-      <div key={`seminar-${i}`} className="relative first:ml-0 -ml-12">
-        <SeminarEventPatchIcon
-          className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
-        />
+  const rows = [];
+  const rowSize = 4; // Maximum of 4 patches per row
+
+  for (let i = 0; i < totalSeminars; i += rowSize) {
+    const patchGroup = [];
+    // Create patches for the current row
+    for (let j = i; j < i + rowSize && j < totalSeminars; j++) {
+      patchGroup.push(
+        <div key={`seminar-${j}`} className="relative first:ml-0 -ml-12">
+          <SeminarEventPatchIcon
+            className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
+          />
+        </div>
+      );
+    }
+
+    // Add the completed row to the rows array
+    rows.push(
+      <div key={`row-${i}`} className="flex justify-center items-center first:mt-0 mt-[-50px]">
+         {patchGroup}
       </div>
     );
   }
 
   return (
-    <div className="flex justify-center items-center flex-wrap py-4 min-h-[140px]">
-      <div className="flex items-center">{patches}</div>
+    <div className="flex flex-col items-center justify-center py-4 min-h-[140px]">
+      {rows}
     </div>
   );
 };
@@ -285,6 +295,7 @@ interface CustomerDetailsProps {
   transactions: Transaction[];
   onUpdateCustomer: (updatedCustomer: Customer) => void;
   onAddTransaction: (newTransaction: Omit<Transaction, 'created_at'>) => void;
+  onDeleteTransactionsByIds: (transactionIds: string[]) => void;
   currentUser: User;
 }
 
@@ -293,6 +304,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   transactions,
   onUpdateCustomer,
   onAddTransaction,
+  onDeleteTransactionsByIds,
   currentUser,
 }) => {
   const { id } = useParams<{ id: string }>();
@@ -473,83 +485,63 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const handleSetInitialValues = (newTotalTrails: number, newTotalSeminars: number) => {
     if (!customer) return;
   
-    // --- Trail Logic (recalculate progress) ---
-    const levelsConfig = [
-        { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
-        { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
-        { name: TrainingLevelEnum.FORTGESCHRITTENE, required: 12 },
-        { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
-        { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
-    ];
+    // --- SEMINAR VALIDATION ---
+    const regularWorkshops = customerTransactions.filter(t => t.description === 'Workshop');
+    if (newTotalSeminars < regularWorkshops.length) {
+      alert(`Korrektur nicht möglich: Die eingegebene Gesamtzahl (${newTotalSeminars}) ist geringer als die Anzahl der bereits regulär gebuchten Seminare (${regularWorkshops.length}).`);
+      return; // Abort without closing modal
+    }
   
+    // --- TRAIL PROGRESS CALCULATION ---
+    const levelsConfig = [
+      { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
+      { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
+      { name: TrainingLevelEnum.FORTGESCHRITTENE, required: 12 },
+      { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
+      { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
+    ];
     let remainingTrails = newTotalTrails;
     let newTrainingProgress: TrainingSection[] = [];
     let hasFoundCurrent = false;
-  
     for (let i = 0; i < levelsConfig.length; i++) {
-        const levelConf = levelsConfig[i];
-        const completed = Math.min(remainingTrails, levelConf.required);
-        remainingTrails -= completed;
-  
-        let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
-        if (completed > 0 && !hasFoundCurrent) {
-            if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
-                status = 'Aktuell';
-                hasFoundCurrent = true;
-            } else {
-                status = 'Abgeschlossen';
-            }
+      const levelConf = levelsConfig[i];
+      const completed = Math.min(remainingTrails, levelConf.required);
+      remainingTrails -= completed;
+      let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
+      if (completed > 0 && !hasFoundCurrent) {
+        if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
+          status = 'Aktuell';
+          hasFoundCurrent = true;
+        } else {
+          status = 'Abgeschlossen';
         }
-        if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
-            status = 'Aktuell';
-            hasFoundCurrent = true;
-        }
-  
-        newTrainingProgress.push({
-            id: i + 1,
-            name: levelConf.name,
-            requiredHours: levelConf.required,
-            completedHours: completed,
-            status,
-        });
+      }
+      if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
+        status = 'Aktuell';
+        hasFoundCurrent = true;
+      }
+      newTrainingProgress.push({
+        id: i + 1, name: levelConf.name, requiredHours: levelConf.required,
+        completedHours: completed, status,
+      });
     }
-  
     if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
-        newTrainingProgress[0].status = 'Aktuell';
+      newTrainingProgress[0].status = 'Aktuell';
     }
-  
     const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
   
-    const finalUpdatedCustomer: Customer = {
-        ...customer,
-        trainingProgress: newTrainingProgress,
-        level: newTrainingInfo.level,
-        avatarColor: getAvatarColorForLevel(newTrainingInfo.level),
-        totalTransactions: customer.totalTransactions + 1, // Add one for the summary transaction
-    };
+    // --- SEMINAR TRANSACTION ADJUSTMENT ---
+    const bestandsuebernahmeWorkshops = customerTransactions.filter(t => t.description === 'Workshop (Bestandsübernahme)');
+    const targetBestandWorkshops = newTotalSeminars - regularWorkshops.length;
+    const diff = targetBestandWorkshops - bestandsuebernahmeWorkshops.length;
   
-    onUpdateCustomer(finalUpdatedCustomer);
-  
-    const trailTransaction: Omit<Transaction, 'created_at'> = {
-        id: `trx-${transactions.length + 1}-${Date.now()}`,
-        customerId: customer.id,
-        type: 'debit',
-        description: `Bestandsübernahme: ${newTotalTrails} Trails`,
-        amount: 0,
-        date: REFERENCE_DATE.toLocaleDateString('de-DE'),
-        employee: `${currentUser.firstName} ${currentUser.lastName}`,
-    };
-    onAddTransaction(trailTransaction);
-
-    // --- Seminar Logic (add transactions to match count) ---
-    const currentSeminars = customerTransactions.filter(t => t.description === 'Workshop').length;
-    const seminarsToAdd = newTotalSeminars - currentSeminars;
-
-    if (seminarsToAdd > 0) {
-      for (let i = 0; i < seminarsToAdd; i++) {
-        // Ensure unique ID for each new transaction
+    if (diff < 0) {
+      const idsToDelete = bestandsuebernahmeWorkshops.slice(0, Math.abs(diff)).map(t => t.id);
+      onDeleteTransactionsByIds(idsToDelete);
+    } else if (diff > 0) {
+      for (let i = 0; i < diff; i++) {
         const newSeminarTransaction: Omit<Transaction, 'created_at'> = {
-          id: `trx-${transactions.length + 2 + i}-${Date.now()}`, 
+          id: `trx-${transactions.length + 2 + i}-${Date.now()}`,
           customerId: customer.id,
           type: 'debit',
           description: 'Workshop (Bestandsübernahme)',
@@ -559,13 +551,31 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         };
         onAddTransaction(newSeminarTransaction);
       }
-       // Update total transaction count on the customer object after adding seminars
-       const updatedCustomerWithSeminars = {
-        ...finalUpdatedCustomer,
-        totalTransactions: finalUpdatedCustomer.totalTransactions + seminarsToAdd,
-      };
-      onUpdateCustomer(updatedCustomerWithSeminars);
     }
+  
+    // --- TRAIL SUMMARY TRANSACTION (existing logic) ---
+    const trailTransaction: Omit<Transaction, 'created_at'> = {
+      id: `trx-${transactions.length + 1}-${Date.now()}`,
+      customerId: customer.id,
+      type: 'debit',
+      description: `Bestandsübernahme: ${newTotalTrails} Trails`,
+      amount: 0,
+      date: REFERENCE_DATE.toLocaleDateString('de-DE'),
+      employee: `${currentUser.firstName} ${currentUser.lastName}`,
+    };
+    onAddTransaction(trailTransaction);
+  
+    // --- FINAL CUSTOMER OBJECT UPDATE ---
+    const newTotalTransactions = customer.totalTransactions + diff + 1;
+  
+    const finalUpdatedCustomer: Customer = {
+      ...customer,
+      trainingProgress: newTrainingProgress,
+      level: newTrainingInfo.level,
+      avatarColor: getAvatarColorForLevel(newTrainingInfo.level),
+      totalTransactions: newTotalTransactions,
+    };
+    onUpdateCustomer(finalUpdatedCustomer);
   
     setIsSetInitialValuesModalOpen(false);
   };
@@ -581,7 +591,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   );
 
   const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
-  const totalSeminarsAndEvents = customerTransactions.filter(t => t.description === 'Workshop').length;
+  const totalSeminarsAndEvents = customerTransactions.filter(
+    t => t.description === 'Workshop' || t.description === 'Workshop (Bestandsübernahme)'
+  ).length;
   const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
   const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;

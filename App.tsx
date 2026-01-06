@@ -51,7 +51,6 @@ const parseCustomerData = (c: any): Customer => {
     trainingProgress, 
     level, // Stellen Sie sicher, dass das Level auch aktuell ist
     avatarColor: getAvatarColorForLevel(level), // Legen Sie die korrekte Avatar-Farbe fest
-    dataSource: 'db' 
   };
 };
 
@@ -331,7 +330,7 @@ const App: React.FC = () => {
   const handleUpdateCustomer = async (updatedCustomer: Customer) => {
     if (!supabase) return;
   
-    const { dataSource, ...customerToUpdate } = updatedCustomer;
+    const { ...customerToUpdate } = updatedCustomer;
     const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
       trainingProgress: JSON.stringify(customerToUpdate.trainingProgress)
@@ -403,6 +402,16 @@ const App: React.FC = () => {
     }
   };
   
+  const handleDeleteTransactionsByIds = async (transactionIds: string[]) => {
+    if (!supabase || transactionIds.length === 0) return;
+    const { error } = await supabase.from('transactions').delete().in('id', transactionIds);
+    if (error) {
+      alert(`Fehler beim Löschen von Transaktionen: ${error.message}`);
+    } else {
+      setTransactions(prev => prev.filter(t => !transactionIds.includes(t.id)));
+    }
+  };
+
   const handleUpdateUser = async (updatedUser: User) => {
     if (!supabase) return;
     const { error } = await supabase.from('profiles').update({
@@ -456,7 +465,7 @@ const App: React.FC = () => {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} users={users} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
@@ -465,12 +474,12 @@ const App: React.FC = () => {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId ? (
                 <>
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
                 </>
               ) : (

@@ -47,19 +47,6 @@ const getLevelColorClass = (level: TrainingLevelEnum) => {
   }
 };
 
-const DatabaseIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-4 w-4 text-blue-500 ml-2"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-  >
-    <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
-    <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
-    <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
-  </svg>
-);
-
 const CustomerManagement: React.FC<CustomerManagementProps> = ({
   customers,
   transactions,
@@ -118,7 +105,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       level: customer.level,
       totalTrails: customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0),
       created_at: customer.created_at,
-      dataSource: customer.dataSource,
     }));
   }, [filteredCustomers]);
 
@@ -139,7 +125,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
               <p className="font-medium text-gray-900 break-words min-w-0">
                 {item.name.split('\n')[0]}
               </p>
-              {item.dataSource === 'db' && <DatabaseIcon />}
             </div>
             <p className="text-sm text-gray-500 break-all">{item.name.split('\n')[1]}</p>
           </div>
@@ -268,7 +253,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center min-w-0">
                               <p className="font-medium text-gray-900 break-words min-w-0">{fullName}</p>
-                              {c.dataSource === 'db' && <DatabaseIcon />}
                             </div>
                             <p className="text-sm text-gray-500 break-all">{customerId}</p>
                             {c.dog && <p className="text-sm text-gray-600 mt-1">{c.dog}</p>}

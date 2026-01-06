@@ -264,5 +264,5 @@ export const TrailBadge500Icon: React.FC<IconProps> = ({ className }) => (
 
 // --- NEUES SEMINAR/EVENT-ABZEICHEN ---
 export const SeminarEventPatchIcon: React.FC<IconProps> = ({ className }) => (
-  <img src="https://hs-bw.com/wp-content/uploads/2026/01/Seminare-und-Events.png" alt="Seminar und Event Abzeichen" className={className} />
+  <img src="https://hs-bw.com/wp-content/uploads/2026/01/Workshop-und-Seminare-und-Events.png" alt="Seminar und Event Abzeichen" className={className} />
 );
