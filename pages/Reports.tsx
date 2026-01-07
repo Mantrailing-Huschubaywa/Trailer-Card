@@ -353,7 +353,8 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Transaktionen im Zeitraum */}
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">{transactionFilter} im Zeitraum ({filteredTransactions.length})</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{transactionFilter} im Zeitraum ({filteredTransactions.length})</h2>
+          <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
           <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {filteredTransactions.length === 0 ? (
               <p className="text-gray-500">Keine Transaktionen für den ausgewählten Zeitraum, Mitarbeiter und Transaktionstyp gefunden.</p>
@@ -392,7 +393,8 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
 
         {/* Top Kunden im Zeitraum */}
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Kunden im Zeitraum</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Top Kunden im Zeitraum</h2>
+          <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
           <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {topCustomers.length === 0 ? (
               <p className="text-gray-500">Keine Top-Kunden für den ausgewählten Zeitraum und Mitarbeiter gefunden.</p>

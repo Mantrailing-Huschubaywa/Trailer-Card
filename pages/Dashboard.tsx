@@ -75,7 +75,8 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Aktuelle Kunden */}
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Aktuelle Kunden</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Aktuelle Kunden</h2>
+          <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
           <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {recentCustomers.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Kunden gefunden.</p>
@@ -98,7 +99,8 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
 
         {/* Letzte Transaktionen */}
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Letzte Transaktionen</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Letzte Transaktionen</h2>
+          <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
           <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
             {latestTransactions.length === 0 ? (
               <p className="text-gray-500 text-sm">Keine aktuellen Transaktionen gefunden.</p>

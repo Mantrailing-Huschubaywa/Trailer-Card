@@ -113,9 +113,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
       </div>
 
       <Card className="mt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900">
           Mitarbeiter & Administratoren ({staffUsers.length})
         </h2>
+        <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
         <div className="divide-y divide-gray-200">
           {staffUsers.length === 0 ? (
             <p className="text-gray-500 text-sm py-4 text-center">Keine Mitarbeiter gefunden.</p>

@@ -645,7 +645,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Persönliche Daten</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Persönliche Daten</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
             <div className="flex items-start">
               <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="lg" className="mr-6 flex-shrink-0" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 flex-grow">
@@ -660,7 +661,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Übersicht</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Übersicht</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-green-50 p-4 rounded-lg flex flex-col justify-center items-center text-center">
                 <p className="text-sm text-gray-600 mb-1">Aktuelles Guthaben</p>
@@ -685,7 +687,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Meine Trails</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Meine Trails</h2>
+                <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
                 <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
                     <TrailBadges totalTrails={trainingInfo.totalTrails} />
                     <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
@@ -693,7 +696,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
             </Card>
             <Card>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Seminare und Events</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Seminare und Events</h2>
+                <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
                 <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
                     <SeminarEventPatches totalSeminars={totalSeminarsAndEvents} />
                     <p className="text-5xl font-bold text-slate-800">{totalSeminarsAndEvents}</p>
@@ -704,7 +708,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         </div>
         <div className="lg:col-span-1 space-y-6">
           <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Konto</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Konto</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
             <div className="space-y-2 text-gray-700">
               <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{new Date(customer.created_at).toLocaleDateString('de-DE')}</span></div>
               <div className="flex justify-between"><span>Kunden-ID</span><span className="font-bold">{customer.id}</span></div>
@@ -724,7 +729,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
 
           <Card className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">QR-Code</h2>
+            <h2 className="text-xl font-semibold text-gray-900">QR-Code</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0 mx-auto" />
             <QRCodeDisplay dataUrl={customer.qrCodeData} className="mb-3" />
             <p className="text-sm text-gray-600">Scannen, um diese Kundenkarte schnell aufzurufen.</p>
           </Card>

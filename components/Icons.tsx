@@ -171,11 +171,7 @@ export const ArrowDownCircleIcon: React.FC<IconProps> = ({ className = 'h-5 w-5'
 
 export const PawPrintIcon: React.FC<IconProps> = ({ className = 'h-6 w-6' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M14.707 10.707a1 1 0 0 1 -1.414 0l-2.586 -2.586a1 1 0 0 1 0 -1.414l.586 -.586a1 1 0 0 1 1.414 0l2.586 2.586a1 1 0 0 1 0 1.414z" />
-    <path d="M9.293 10.707a1 1 0 0 0 1.414 0l2.586 -2.586a1 1 0 0 0 0 -1.414l-.586 -.586a1 1 0 0 0 -1.414 0l-2.586 2.586a1 1 0 0 0 0 1.414z" />
-    <path d="M9.293 16.707a1 1 0 0 1 -1.414 0l-2.586 -2.586a1 1 0 0 1 0 -1.414l.586 -.586a1 1 0 0 1 1.414 0l2.586 2.586a1 1 0 0 1 0 1.414z" />
-    <path d="M14.707 16.707a1 1 0 0 0 1.414 0l2.586 -2.586a1 1 0 0 0 0 -1.414l-.586 -.586a1 1 0 0 0 -1.414 0l-2.586 2.586a1 1 0 0 0 0 1.414z" />
-    <path d="M12 21a5.002 5.002 0 0 1 -4.163 -7.994c.28 -.423 .666 -.93 1.163 -1.506c1.164 -1.332 2.46 -2.5 4 -2.5s2.836 1.168 4 2.5c.497 .575 .883 1.083 1.163 1.506a5 5 0 0 1 -4.163 7.994" />
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
   </svg>
 );
 

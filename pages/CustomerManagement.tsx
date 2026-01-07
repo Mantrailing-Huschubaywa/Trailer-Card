@@ -222,9 +222,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       </Card>
 
       <Card>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900">
           Kundenliste ({filteredCustomers.length})
         </h2>
+        <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
 
         {/* Mobile: Card List (like Reports); Desktop: Table */}
         <div className="block md:hidden">
