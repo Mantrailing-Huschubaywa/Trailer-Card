@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Card from '../components/Card';
 import Input from '../components/Input';
@@ -116,7 +115,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister }) => {
               Wir haben eine Bestätigungs-E-Mail an <span className="font-medium">{email}</span> gesendet.
             </p>
             <p className="text-gray-600 mt-1">
-              Bitte klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren.
+              Bitte klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren. Schauen Sie bitte auch in Ihrem Spam-Ordner nach.
             </p>
             <div className="mt-6">
                 <button onClick={() => resetForm(false)} className="text-sm text-blue-600 hover:underline">

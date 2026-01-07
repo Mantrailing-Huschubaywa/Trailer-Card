@@ -1,12 +1,12 @@
 import React from 'react';
 import Modal from './Modal';
 import Button from './Button';
-import { ArrowUpCircleIcon, ArrowDownCircleIcon, ClipboardIcon } from './Icons'; // Reusing existing icons
+import { ArrowUpCircleIcon, ArrowDownCircleIcon, ClipboardIcon } from './Icons';
 
 interface TransactionTypeSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectType: (type: 'Aufladung' | 'Trails' | 'Workshop') => void;
+  onSelectType: (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit') => void;
   customerBalance: number;
 }
 
@@ -17,60 +17,59 @@ const TransactionTypeSelectionModal: React.FC<TransactionTypeSelectionModalProps
   customerBalance,
 }) => {
   const TRAIL_COST = 18;
-  const WORKSHOP_COST = 36;
   const isTrailDisabled = customerBalance < TRAIL_COST;
-  const isWorkshopDisabled = customerBalance < WORKSHOP_COST;
+  const isSeminarDisabled = customerBalance <= 0;
+
+  const handleSelect = (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit') => {
+    onSelectType(type);
+    onClose();
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Transaktion auswählen" className="max-w-sm">
       <div className="p-4 space-y-4 text-center">
-        <p className="text-gray-700">Bitte wählen Sie den Typ der Transaktion aus.</p>
+        <p className="text-gray-700">Wählen Sie die gewünschte Buchungsart aus.</p>
+        
         <div className="flex flex-col space-y-3">
           <Button
             variant="success"
             icon={ArrowUpCircleIcon}
-            onClick={() => {
-              onSelectType('Aufladung');
-              onClose();
-            }}
+            onClick={() => handleSelect('customRecharge')}
+            className="w-full"
           >
-            Aufladung
+            Aufladung (Individueller Betrag)
           </Button>
+
           <Button
             variant="danger"
             icon={ArrowDownCircleIcon}
-            onClick={() => {
-              onSelectType('Trails');
-              onClose();
-            }}
+            onClick={() => handleSelect('Mantrailing')}
             disabled={isTrailDisabled}
-            title={isTrailDisabled ? `Nicht genügend Guthaben. Benötigt: ${TRAIL_COST.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}` : ''}
+            className="w-full"
           >
-            Trails
+            Abbuchung Mantrailing (18,00 €)
           </Button>
+
           <Button
-            variant="info" // A light blue color for workshops
+            variant="info"
             icon={ClipboardIcon}
-            onClick={() => {
-              onSelectType('Workshop');
-              onClose();
-            }}
-            disabled={isWorkshopDisabled}
-            title={isWorkshopDisabled ? `Nicht genügend Guthaben. Benötigt: ${WORKSHOP_COST.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}` : ''}
+            onClick={() => handleSelect('customSeminarDebit')}
+            className="w-full"
+            disabled={isSeminarDisabled}
           >
-            Seminar/Event
+            Seminar/Event (Individueller Betrag)
           </Button>
         </div>
-        {(isTrailDisabled || isWorkshopDisabled) && (
-            <p className="text-sm text-red-600 mt-4">
-                Einige Optionen sind wegen zu geringem Guthaben nicht verfügbar.
-            </p>
-        )}
-      </div>
-      <div className="p-4 border-t border-gray-200 flex justify-end">
-        <Button variant="outline" onClick={onClose}>
-          Abbrechen
-        </Button>
+
+        {isSeminarDisabled ? (
+          <p className="text-sm text-red-600 mt-2">
+            Kein Guthaben für Abbuchungen vorhanden.
+          </p>
+        ) : isTrailDisabled ? (
+          <p className="text-sm text-red-600 mt-2">
+            Guthaben reicht für Mantrailing-Abbuchung nicht aus.
+          </p>
+        ) : null}
       </div>
     </Modal>
   );

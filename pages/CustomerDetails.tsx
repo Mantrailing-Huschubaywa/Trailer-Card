@@ -10,10 +10,11 @@ import TransactionConfirmationModal from '../components/TransactionConfirmationM
 import TransactionTypeSelectionModal from '../components/TransactionTypeSelectionModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
-import BankDetailsModal from '../components/BankDetailsModal'; // NEU
+import BankDetailsModal from '../components/BankDetailsModal';
+import CustomAmountModal from '../components/CustomAmountModal';
 import {
   ArrowLeftIcon,
-  HeartIcon,
+  PawPrintIcon,
   CreditCardIcon,
   MailIcon,
   PhoneIcon,
@@ -26,7 +27,7 @@ import {
   TrailBadge100Icon,
   TrailBadge500Icon,
   SeminarEventPatchIcon,
-  BankIcon, // NEU
+  BankIcon,
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
@@ -317,7 +318,10 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSetInitialValuesModalOpen, setIsSetInitialValuesModalOpen] = useState(false);
-  const [isBankDetailsModalOpen, setIsBankDetailsModalOpen] = useState(false); // NEU
+  const [isBankDetailsModalOpen, setIsBankDetailsModalOpen] = useState(false);
+  const [isCustomAmountModalOpen, setIsCustomAmountModalOpen] = useState(false);
+  const [customTransactionType, setCustomTransactionType] = useState<'Aufladung' | 'Abbuchung'>('Aufladung');
+  const [customTransactionDescription, setCustomTransactionDescription] = useState('');
 
   useEffect(() => {
     setIsLoadingCustomer(true);
@@ -392,9 +396,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     finalUpdatedCustomer.totalTransactions = customer.totalTransactions + 1;
 
     const isRecharge = transactionData.transactionType === 'Aufladung';
-    // WICHTIG: Diese Logik wird nur ausgeführt, wenn es sich um eine "Trails"-Abbuchung handelt.
-    // Eine "Workshop"-Abbuchung wird diesen Block überspringen und nur das Guthaben anpassen.
-    if (!isRecharge && transactionData.description === 'Trails' && transactionData.amount === 18) {
+    
+    if (!isRecharge && transactionData.description === 'Mantrailing' && transactionData.amount === 18) {
       const currentTrainingProgress: TrainingSection[] = JSON.parse(JSON.stringify(customer.trainingProgress));
       
       let trailAdded = false;
@@ -446,33 +449,31 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTransactionData(null);
   };
   
-  const handleSelectTransactionType = (type: 'Aufladung' | 'Trails' | 'Workshop') => {
+  const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit') => {
     setShowTransactionTypeModal(false);
     if (!customer) return;
 
-    let amount = 0;
-    let description = '';
-    let transactionType: 'Aufladung' | 'Abbuchung' = 'Abbuchung';
-
     switch (type) {
-      case 'Aufladung':
-        amount = 216;
-        description = 'Guthabenaufladung';
-        transactionType = 'Aufladung';
+      case 'customRecharge':
+        setCustomTransactionType('Aufladung');
+        setCustomTransactionDescription('');
+        setIsCustomAmountModalOpen(true);
         break;
-      case 'Trails':
-        amount = 18;
-        description = 'Trails';
-        transactionType = 'Abbuchung';
+      case 'customSeminarDebit':
+        setCustomTransactionType('Abbuchung');
+        setCustomTransactionDescription('Seminar/Event');
+        setIsCustomAmountModalOpen(true);
         break;
-      case 'Workshop':
-        amount = 36;
-        description = 'Workshop';
-        transactionType = 'Abbuchung';
+      case 'Mantrailing':
+        handleOpenConfirmationModal(18, 'Abbuchung', 'Mantrailing');
         break;
     }
+  };
 
-    handleOpenConfirmationModal(amount, transactionType, description);
+  const handleCustomAmountSubmit = (amount: number, description: string) => {
+    setIsCustomAmountModalOpen(false);
+    handleOpenConfirmationModal(amount, customTransactionType, description || customTransactionType);
+    setCustomTransactionDescription(''); // Reset after use
   };
   
   const handleUpdateStammdaten = (data: NewCustomerData) => {
@@ -486,7 +487,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     if (!customer) return;
   
     // --- SEMINAR VALIDATION ---
-    const regularWorkshops = customerTransactions.filter(t => t.description === 'Workshop');
+    const regularWorkshops = customerTransactions.filter(t => t.description === 'Workshop' || t.description === 'Seminar/Event');
     if (newTotalSeminars < regularWorkshops.length) {
       alert(`Korrektur nicht möglich: Die eingegebene Gesamtzahl (${newTotalSeminars}) ist geringer als die Anzahl der bereits regulär gebuchten Seminare (${regularWorkshops.length}).`);
       return; // Abort without closing modal
@@ -592,7 +593,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
   const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
   const totalSeminarsAndEvents = customerTransactions.filter(
-    t => t.description === 'Workshop' || t.description === 'Workshop (Bestandsübernahme)'
+    t => t.description === 'Workshop' || t.description === 'Workshop (Bestandsübernahme)' || t.description === 'Seminar/Event'
   ).length;
   const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
@@ -652,7 +653,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <DataRow Icon={UserIcon} label="Nachname" value={customer.lastName} />
                 <DataRow Icon={MailIcon} label="E-Mail" value={customer.email} />
                 <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} />
-                <DataRow Icon={HeartIcon} label="Hund" value={customer.dogName} />
+                <DataRow Icon={PawPrintIcon} label="Hund" value={customer.dogName} />
                 <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} />
               </div>
             </div>
@@ -759,6 +760,17 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onSubmit={handleSetInitialValues}
         currentTrails={totalTrails}
         currentSeminars={totalSeminarsAndEvents}
+      />
+      <CustomAmountModal
+        isOpen={isCustomAmountModalOpen}
+        onClose={() => {
+            setIsCustomAmountModalOpen(false);
+            setCustomTransactionDescription('');
+        }}
+        onSubmit={handleCustomAmountSubmit}
+        transactionType={customTransactionType}
+        defaultDescription={customTransactionDescription}
+        customerBalance={customer.balance}
       />
        <BankDetailsModal
         isOpen={isBankDetailsModalOpen}
