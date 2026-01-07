@@ -13,6 +13,7 @@ interface BankDetailsModalProps {
 const BankDetailsModal: React.FC<BankDetailsModalProps> = ({ isOpen, onClose, customer }) => {
   const [isIbanCopied, setIsIbanCopied] = useState(false);
   const [isPurposeCopied, setIsPurposeCopied] = useState(false);
+  const RECHARGE_AMOUNT = 216; // Definierter Aufladebetrag
 
   const bankDetails = {
     recipient: 'Hundeschule Bayerischer Wald\nChristian Josef Huber',
@@ -81,7 +82,11 @@ const BankDetailsModal: React.FC<BankDetailsModalProps> = ({ isOpen, onClose, cu
     <Modal isOpen={isOpen} onClose={onClose} title="Bankverbindung für Guthabenaufladung" className="max-w-xl">
       <div className="p-0">
         <p className="text-base text-gray-600 mb-4">
-          Bitte überweise den gewünschten Betrag für die Hundeschule Bayerischer Wald an die unten stehende Bankverbindung.
+          Bitte überweise den Betrag von{' '}
+          <strong className="text-lg font-bold text-blue-600">
+            {RECHARGE_AMOUNT.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+          </strong>
+          {' '}an die unten stehende Bankverbindung, um deine Karte aufzuladen.
         </p>
         <div className="border-t border-b border-gray-200 divide-y divide-gray-200">
           <InfoRow label="Empfänger" value={bankDetails.recipient} />
