@@ -295,12 +295,19 @@ const App: React.FC = () => {
       ]),
     };
 
-    // STEP 2: Create customer record
-    const { error: customerInsertError } = await supabase.from('customers').insert([newCustomerData]);
-    if (customerInsertError) {
-      console.error("Customer Insert Error:", customerInsertError);
-      return `Fehler beim Erstellen des Kundenprofils: ${customerInsertError.message}`;
-    }
+   // STEP 2: Create customer record
+const { error: customerInsertError } = await supabase.from('customers').insert([newCustomerData]);
+if (customerInsertError) {
+  console.error("Customer Insert Error:", customerInsertError);
+
+  // Doppelregistrierung hübsch abfangen
+  if (customerInsertError.code === '23505' || customerInsertError.message?.includes('customers_email_unique')) {
+    return 'Diese E-Mail-Adresse ist bereits registriert. Bitte melden Sie sich mit dieser E-Mail an.';
+  }
+
+  return `Fehler beim Erstellen des Kundenprofils: ${customerInsertError.message}`;
+}
+
 
     // STEP 3: Create auth user
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
