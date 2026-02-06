@@ -61,3 +61,10 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+// NEU: Event-Listener, um auf Nachrichten von der Hauptanwendung zu reagieren
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

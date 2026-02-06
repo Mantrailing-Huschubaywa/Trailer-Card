@@ -15,7 +15,7 @@ import { USE_MOCK_DATA } from './config';
 import { getSupabaseClient } from './supabaseClient';
 import { getAvatarColorForLevel } from './utils';
 import Button from './components/Button';
-import { PlusIcon } from './components/Icons';
+import { PlusIcon, CheckCircleIcon } from './components/Icons';
 
 // Helper function to safely parse customer data from Supabase
 const parseCustomerData = (c: any): Customer => {
@@ -105,7 +105,7 @@ const App: React.FC = () => {
 
   const toggleMobileSidebar = () => setIsMobileSidebarOpen(prev => !prev);
   const closeMobileSidebar = () => setIsMobileSidebarOpen(false);
-  
+
   // Effect for PWA installation prompt
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
