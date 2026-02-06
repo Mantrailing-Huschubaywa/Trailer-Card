@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appName, currentUser, onLogout, isOpe
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         <div className="p-6 flex flex-col items-center text-center flex-shrink-0">
-          <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-16 w-16 mb-2 rounded-[10px]" />
+          <img src="https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png" alt="App Logo" className="h-16 w-16 mb-2 rounded-[10px]" />
           <span className="text-2xl font-bold text-white">{appName}</span>
         </div>
 

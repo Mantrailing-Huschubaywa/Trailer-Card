@@ -63,7 +63,7 @@ const MobileHeader: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSideb
       </svg>
     </button>
     <div className="flex items-center">
-      <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-10 w-10 mr-2 rounded-[10px]" />
+      <img src="https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png" alt="App Logo" className="h-10 w-10 mr-2 rounded-[10px]" />
       <span className="text-xl font-bold">Mantrailing Card</span>
     </div>
     {/* Placeholder to balance the flexbox layout */}
@@ -75,7 +75,7 @@ const MobileHeader: React.FC<{ onToggleSidebar: () => void }> = ({ onToggleSideb
 const InstallPrompt: React.FC<{ onInstall: () => void; onDismiss: () => void; }> = ({ onInstall, onDismiss }) => (
   <div className="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-4 shadow-lg z-50 flex items-center justify-between animate-fade-in-up">
     <div className="flex items-center">
-      <img src="https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png" alt="App Logo" className="h-10 w-10 mr-4 rounded-[10px]" />
+      <img src="https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png" alt="App Logo" className="h-10 w-10 mr-4 rounded-[10px]" />
       <div>
         <h4 className="font-bold">App installieren</h4>
         <p className="text-sm text-gray-300">Für schnellen Zugriff auf Ihrem Gerät hinzufügen.</p>

@@ -6,7 +6,7 @@ const urlsToCache = [
   '/index.html',
   '/index.tsx', // Wichtig: Haupt-Skript hinzufügen
   '/manifest.json',
-  'https://hs-bw.com/wp-content/uploads/2026/01/Mantrailing.png',
+  'https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png',
   // Die JS/TSX-Dateien werden durch den Browser-Cache und das Build-System gehandhabt,
   // aber die wichtigsten Einstiegspunkte werden hier gecacht.
 ];

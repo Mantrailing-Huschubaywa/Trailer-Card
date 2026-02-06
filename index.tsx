@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
@@ -12,8 +11,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* Remove initialEntries, as it's not supported by HashRouter. */}
-    {/* Initial navigation is handled by App.tsx based on login status. */}
+    {/* Use HashRouter for robust client-side routing that works without server configuration. */}
     <HashRouter> 
       <App />
     </HashRouter>
