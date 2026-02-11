@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import TrailBadges from '../components/TrailBadges';
 import { TrainingSection } from '../types';
+import { AwardIcon } from '../components/Icons';
 
 interface LeaderboardCustomer {
   id: string;
@@ -91,40 +92,55 @@ const LeaderboardPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-            <img src="https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png" alt="App Logo" className="h-20 w-20 mx-auto mb-2 rounded-xl" />
-            <h1 className="text-4xl font-bold text-gray-900">Bestenliste der Trail-Helden</h1>
+            <div className="w-20 h-20 bg-yellow-300 rounded-xl mx-auto mb-4 flex items-center justify-center shadow">
+                <AwardIcon className="h-12 w-12 text-yellow-800" />
+            </div>
+            <h1 className="text-4xl font-bold text-gray-800">Bestenliste der Trail-Helden</h1>
             <p className="text-lg text-gray-600 mt-2">Eine Rangliste der fleißigsten Mantrailing-Teams!</p>
         </div>
 
         <div className="space-y-4">
-          {leaderboardData.map((customer) => (
-            <Card key={customer.id} className="p-4 shadow-md hover:shadow-lg transition-shadow">
-              <div className="grid grid-cols-[auto,1fr,auto] gap-4 items-center">
-                <div className="text-4xl font-bold text-gray-400 w-12 text-center">
-                  #{customer.rank}
-                </div>
-                
-                <div className="flex items-center">
-                  <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="lg" className="mr-4" />
-                  <div>
-                    <p className="font-bold text-lg text-gray-900">{customer.firstName} {customer.lastName}</p>
-                    <p className="text-md text-gray-600">{customer.dogName}</p>
+          {leaderboardData.length > 0 ? (
+            leaderboardData.map((customer) => (
+              <Card key={customer.id} className="p-4 shadow-md hover:shadow-lg transition-shadow">
+                <div className="grid grid-cols-[auto,1fr,auto] gap-4 items-center">
+                  <div className="text-4xl font-bold text-gray-400 w-12 text-center">
+                    #{customer.rank}
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="lg" className="mr-4" />
+                    <div>
+                      <p className="font-bold text-lg text-gray-900">{customer.firstName} {customer.lastName}</p>
+                      <p className="text-md text-gray-600">{customer.dogName}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-5xl font-extrabold text-blue-600">{customer.totalTrails}</p>
+                    <p className="text-sm font-medium text-gray-500">absolvierte Trails</p>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <p className="text-5xl font-extrabold text-blue-600">{customer.totalTrails}</p>
-                  <p className="text-sm font-medium text-gray-500">absolvierte Trails</p>
+                <div className="mt-4 border-t pt-4">
+                   <TrailBadges totalTrails={customer.totalTrails} />
                 </div>
-              </div>
-              <div className="mt-4 border-t pt-4">
-                 <TrailBadges totalTrails={customer.totalTrails} />
-              </div>
-            </Card>
-          ))}
+              </Card>
+            ))
+          ) : (
+            !isLoading && (
+                 <Card className="p-8 text-center">
+                    <p className="text-gray-600 text-lg">
+                        Momentan sind keine Daten für die Bestenliste verfügbar.
+                    </p>
+                    <p className="text-gray-500 mt-2">
+                        Die Rangliste wird aktualisiert, sobald es neue Trail-Aktivitäten gibt.
+                    </p>
+                </Card>
+             )
+          )}
         </div>
       </div>
     </div>
