@@ -687,23 +687,23 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-                <h2 className="text-xl font-semibold text-gray-900">Meine Trails</h2>
-                <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
-                <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
-                    <TrailBadges totalTrails={trainingInfo.totalTrails} />
-                    <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
-                    <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
-                </div>
+            <Card className="flex flex-col">
+              <h2 className="text-xl font-semibold text-gray-900">Meine Trails</h2>
+              <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
+              <div className="bg-slate-100 p-6 flex flex-col items-center justify-center text-center flex-grow rounded-lg">
+                  <TrailBadges totalTrails={trainingInfo.totalTrails} />
+                  <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
+                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
+              </div>
             </Card>
-            <Card>
-                <h2 className="text-xl font-semibold text-gray-900">Seminare und Events</h2>
-                <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
-                <div className="bg-slate-100 p-6 rounded-lg flex flex-col items-center justify-center text-center h-full">
-                    <SeminarEventPatches totalSeminars={totalSeminarsAndEvents} />
-                    <p className="text-5xl font-bold text-slate-800">{totalSeminarsAndEvents}</p>
-                    <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Seminare und Events</p>
-                </div>
+            <Card className="flex flex-col">
+              <h2 className="text-xl font-semibold text-gray-900">Seminare und Events</h2>
+              <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
+              <div className="bg-slate-100 p-6 flex flex-col items-center justify-center text-center flex-grow rounded-lg">
+                  <SeminarEventPatches totalSeminars={totalSeminarsAndEvents} />
+                  <p className="text-5xl font-bold text-slate-800">{totalSeminarsAndEvents}</p>
+                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Seminare und Events</p>
+              </div>
             </Card>
           </div>
         </div>

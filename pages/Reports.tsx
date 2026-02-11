@@ -9,6 +9,9 @@ import { MOCK_REPORT_TYPES, MOCK_TRANSACTION_FILTERS, REFERENCE_DATE } from '../
 import { ArrowUpCircleIcon, ArrowDownCircleIcon, DollarSignIcon, ClipboardIcon, UsersIcon } from '../components/Icons';
 import { parseDateString, isSameMonth } from '../utils';
 import { Customer, Transaction, User, UserRoleEnum } from '../types';
+import DashboardInfoModal from '../components/DashboardInfoModal';
+import { Column } from '../components/Table';
+
 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; // Import jspdf-autotable plugin
@@ -54,11 +57,15 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
   const [reportType, setReportType] = useState('Monatlich');
   const [employee, setEmployee] = useState('Alle Mitarbeiter');
   const [transactionFilter, setTransactionFilter] = useState('Alle Transaktionen'); // New state for transaction type filter
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{ title: string; items: any[]; columns: Column<any>[]; emptyStateMessage: string; } | null>(null);
 
   const initialPeriods = generateReportPeriods('Monatlich', REFERENCE_DATE);
   const [timePeriod, setTimePeriod] = useState(initialPeriods.length > 0 ? initialPeriods[0].value : 'Gesamt');
   const [availableTimePeriods, setAvailableTimePeriods] = useState(initialPeriods);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers]);
 
   // Effect to update availableTimePeriods and reset timePeriod when reportType changes
   useEffect(() => {
@@ -139,22 +146,121 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // Dynamic calculations for Report Stats
-  const monthlyRecharges = filteredTransactions
-    .filter(t => t.type === 'recharge')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  // Modal data and stats
+  const rechargeTransactions = useMemo(() => filteredTransactions.filter(t => t.type === 'recharge'), [filteredTransactions]);
+  const debitTransactions = useMemo(() => filteredTransactions.filter(t => t.type === 'debit'), [filteredTransactions]);
 
-  const monthlyDebits = filteredTransactions
-    .filter(t => t.type === 'debit')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
+  const activeCustomerIdsInPeriod = useMemo(() => new Set(filteredTransactions.map(t => t.customerId)), [filteredTransactions]);
+  const activeCustomersInPeriod = useMemo(() => customers.filter(c => activeCustomerIdsInPeriod.has(c.id)), [customers, activeCustomerIdsInPeriod]);
+  
+  const monthlyRecharges = rechargeTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const monthlyDebits = debitTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const totalMonthlyTransactions = filteredTransactions.length;
+  const activeCustomersInPeriodCount = activeCustomersInPeriod.length;
 
-  const activeCustomerIdsInPeriod = new Set(
-    filteredTransactions.map(t => t.customerId)
-  );
-  const activeCustomersInPeriodCount = customers.filter(c => activeCustomerIdsInPeriod.has(c.id)).length;
+  const handleOpenModal = (title: string, items: any[], columns: Column<any>[], emptyStateMessage: string) => {
+    setModalConfig({ title, items, columns, emptyStateMessage });
+    setIsInfoModalOpen(true);
+  };
 
+  const customerColumns: Column<Customer>[] = useMemo(() => [
+    {
+      key: 'firstName',
+      header: 'Kunde',
+      render: (customer) => (
+        <div className="flex items-center">
+          <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="md" className="mr-3" />
+          <div>
+            <p className="font-medium text-gray-900">{customer.firstName} {customer.lastName}</p>
+            <p className="text-sm text-gray-500">{customer.dogName}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'balance',
+      header: 'Guthaben',
+      render: (customer) => customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+      className: 'text-right font-semibold',
+      headerClassName: 'text-right',
+    },
+  ], []);
+
+  const transactionColumns: Column<Transaction>[] = useMemo(() => [
+    {
+        key: 'description',
+        header: 'Transaktion',
+        render: (transaction) => {
+            const isRecharge = transaction.type === 'recharge';
+            const Icon = isRecharge ? ArrowUpCircleIcon : ArrowDownCircleIcon;
+            const iconColor = isRecharge ? 'text-green-500' : 'text-red-500';
+            return (
+                <div className="flex items-center">
+                    <Icon className={`h-8 w-8 mr-3 flex-shrink-0 ${iconColor}`} />
+                    <div>
+                        <p className="font-medium text-gray-900">{transaction.description}</p>
+                        <p className="text-sm text-gray-500">{transaction.date}</p>
+                    </div>
+                </div>
+            )
+        }
+    },
+    {
+        key: 'customerId',
+        header: 'Kunde',
+        render: (transaction) => {
+            const customer = customerMap.get(transaction.customerId);
+            return customer ? `${customer.firstName} ${customer.lastName}` : 'Unbekannt';
+        },
+    },
+    {
+        key: 'amount',
+        header: 'Betrag',
+        render: (transaction) => {
+            const isRecharge = transaction.type === 'recharge';
+            const amountColor = isRecharge ? 'text-green-700' : 'text-red-700';
+            const amountSign = isRecharge ? '+' : '-';
+            return (
+                <span className={`font-semibold ${amountColor}`}>
+                    {amountSign}{Math.abs(transaction.amount).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                </span>
+            )
+        },
+        className: 'text-right',
+        headerClassName: 'text-right',
+    }
+  ], [customerMap]);
+
+  const reportStats = [
+    {
+      title: 'Gesamtaufladungen',
+      value: monthlyRecharges.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+      icon: UsersIcon,
+      color: 'bg-green-100 text-green-700',
+      onClick: () => handleOpenModal(`Aufladungen für ${timePeriod}`, rechargeTransactions, transactionColumns, `Keine Aufladungen im ausgewählten Zeitraum gefunden.`)
+    },
+    {
+      title: 'Abbuchungen',
+      value: monthlyDebits.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+      icon: DollarSignIcon,
+      color: 'bg-orange-100 text-orange-700',
+      onClick: () => handleOpenModal(`Abbuchungen für ${timePeriod}`, debitTransactions, transactionColumns, `Keine Abbuchungen im ausgewählten Zeitraum gefunden.`)
+    },
+    {
+      title: 'Transaktionen',
+      value: totalMonthlyTransactions,
+      icon: ClipboardIcon,
+      color: 'bg-blue-100 text-blue-700',
+      onClick: () => handleOpenModal(`Alle Transaktionen für ${timePeriod}`, filteredTransactions, transactionColumns, `Keine Transaktionen im ausgewählten Zeitraum gefunden.`)
+    },
+    {
+      title: 'Aktive Kunden',
+      value: activeCustomersInPeriodCount,
+      icon: UsersIcon,
+      color: 'bg-purple-100 text-purple-700',
+      onClick: () => handleOpenModal(`Aktive Kunden für ${timePeriod}`, activeCustomersInPeriod.sort((a,b) => a.lastName.localeCompare(b.lastName)), customerColumns, `Keine aktiven Kunden im ausgewählten Zeitraum gefunden.`)
+    }
+  ];
 
   const getTopCustomers = () => {
     const customerTransactions: { [key: string]: { count: number; totalAmount: number } } = {};
@@ -324,30 +430,21 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
 
       {/* Stats Cards for Reports */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="Gesamtaufladungen"
-          value={monthlyRecharges.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-          icon={UsersIcon}
-          color="bg-green-100 text-green-700"
-        />
-        <StatCard
-          title="Abbuchungen"
-          value={monthlyDebits.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-          icon={DollarSignIcon}
-          color="bg-orange-100 text-orange-700"
-        />
-        <StatCard
-          title="Transaktionen"
-          value={totalMonthlyTransactions}
-          icon={ClipboardIcon}
-          color="bg-blue-100 text-blue-700"
-        />
-        <StatCard
-          title="Aktive Kunden"
-          value={activeCustomersInPeriodCount}
-          icon={UsersIcon}
-          color="bg-purple-100 text-purple-700"
-        />
+        {reportStats.map((stat, index) => (
+            <button
+            key={index}
+            onClick={stat.onClick}
+            className="text-left transition-transform duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+            aria-label={`Details für ${stat.title} anzeigen`}
+            >
+            <StatCard
+                title={stat.title}
+                value={stat.value}
+                icon={stat.icon}
+                color={stat.color}
+            />
+            </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -420,6 +517,16 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
           </div>
         </Card>
       </div>
+      {modalConfig && (
+        <DashboardInfoModal
+            isOpen={isInfoModalOpen}
+            onClose={() => setIsInfoModalOpen(false)}
+            title={modalConfig.title}
+            items={modalConfig.items}
+            columns={modalConfig.columns}
+            emptyStateMessage={modalConfig.emptyStateMessage}
+        />
+      )}
     </div>
   );
 };

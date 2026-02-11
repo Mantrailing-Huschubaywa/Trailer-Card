@@ -10,6 +10,8 @@ import {
   HeartIcon,
   ClipboardIcon,
   RepeatIcon,
+  ArrowUpCircleIcon,
+  ArrowDownCircleIcon,
 } from '../components/Icons';
 import { ALPHABET, REFERENCE_DATE } from '../constants';
 import {
@@ -22,6 +24,7 @@ import {
 } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { parseDateString, isSameMonth } from '../utils';
+import DashboardInfoModal from '../components/DashboardInfoModal';
 
 interface CustomerManagementProps {
   customers: Customer[];
@@ -54,6 +57,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<string>('Alle');
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{ title: string; items: any[]; columns: Column<any>[]; emptyStateMessage: string; } | null>(null);
+
+  const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers]);
 
   const totalCustomers = customers.length;
   const totalBalance = customers.reduce((sum, c) => sum + c.balance, 0);
@@ -61,9 +68,9 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const today = REFERENCE_DATE;
   const currentYear = today.getFullYear();
 
-  const totalTrailsThisYear = useMemo(() => {
+  const totalTrailsThisYearTransactions = useMemo(() => {
     return transactions.filter(t => {
-      if (t.description !== 'Trails') {
+      if (t.description !== 'Mantrailing') {
         return false;
       }
       const transactionDate = parseDateString(t.date);
@@ -71,8 +78,9 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
         return false;
       }
       return transactionDate.getFullYear() === currentYear;
-    }).length;
+    });
   }, [transactions, currentYear]);
+  const totalTrailsThisYear = totalTrailsThisYearTransactions.length;
 
   const currentMonthTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -83,9 +91,109 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
 
   const monthlyTransactionsCount = currentMonthTransactions.length;
 
-  const activeCustomerIds = useMemo(() => {
-    return new Set(currentMonthTransactions.map((t) => t.customerId));
-  }, [currentMonthTransactions]);
+  const handleOpenModal = (title: string, items: any[], columns: Column<any>[], emptyStateMessage: string) => {
+    setModalConfig({ title, items, columns, emptyStateMessage });
+    setIsInfoModalOpen(true);
+  };
+
+  const customerColumns: Column<Customer>[] = useMemo(() => [
+    {
+      key: 'firstName',
+      header: 'Kunde',
+      render: (customer) => (
+        <div className="flex items-center">
+          <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="md" className="mr-3" />
+          <div>
+            <p className="font-medium text-gray-900">{customer.firstName} {customer.lastName}</p>
+            <p className="text-sm text-gray-500">{customer.dogName}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'balance',
+      header: 'Guthaben',
+      render: (customer) => customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+      className: 'text-right font-semibold',
+      headerClassName: 'text-right',
+    },
+  ], []);
+
+  const transactionColumns: Column<Transaction>[] = useMemo(() => [
+    {
+        key: 'description',
+        header: 'Transaktion',
+        render: (transaction) => {
+            const isRecharge = transaction.type === 'recharge';
+            const Icon = isRecharge ? ArrowUpCircleIcon : ArrowDownCircleIcon;
+            const iconColor = isRecharge ? 'text-green-500' : 'text-red-500';
+            return (
+                <div className="flex items-center">
+                    <Icon className={`h-8 w-8 mr-3 flex-shrink-0 ${iconColor}`} />
+                    <div>
+                        <p className="font-medium text-gray-900">{transaction.description}</p>
+                        <p className="text-sm text-gray-500">{transaction.date}</p>
+                    </div>
+                </div>
+            )
+        }
+    },
+    {
+        key: 'customerId',
+        header: 'Kunde',
+        render: (transaction) => {
+            const customer = customerMap.get(transaction.customerId);
+            return customer ? `${customer.firstName} ${customer.lastName}` : 'Unbekannt';
+        },
+    },
+    {
+        key: 'amount',
+        header: 'Betrag',
+        render: (transaction) => {
+            const isRecharge = transaction.type === 'recharge';
+            const amountColor = isRecharge ? 'text-green-700' : 'text-red-700';
+            const amountSign = isRecharge ? '+' : '-';
+            return (
+                <span className={`font-semibold ${amountColor}`}>
+                    {amountSign}{Math.abs(transaction.amount).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                </span>
+            )
+        },
+        className: 'text-right',
+        headerClassName: 'text-right',
+    }
+  ], [customerMap]);
+
+  const customerStats = [
+    { 
+      title: 'Kunden Gesamt', 
+      value: totalCustomers, 
+      icon: UsersIcon, 
+      color: 'bg-green-100 text-green-700',
+      onClick: () => handleOpenModal('Alle Kunden', customers.sort((a,b) => a.lastName.localeCompare(b.lastName)), customerColumns, 'Es sind keine Kunden vorhanden.')
+    },
+    { 
+      title: 'Trails Gesamt', 
+      value: totalTrailsThisYear, 
+      icon: HeartIcon, 
+      color: 'bg-orange-100 text-orange-700',
+      onClick: () => handleOpenModal(`Trails in ${currentYear}`, totalTrailsThisYearTransactions, transactionColumns, `In ${currentYear} wurden keine Trails gebucht.`)
+    },
+    { 
+      title: 'Guthaben', 
+      value: totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }), 
+      icon: ClipboardIcon, 
+      color: 'bg-blue-100 text-blue-700',
+      onClick: () => handleOpenModal('Guthabenübersicht', customers.sort((a,b) => b.balance - a.balance), customerColumns, 'Es sind keine Kundenguthaben vorhanden.')
+    },
+    { 
+      title: 'Transaktionen Monat', 
+      value: monthlyTransactionsCount, 
+      icon: RepeatIcon, 
+      color: 'bg-purple-100 text-purple-700',
+      onClick: () => handleOpenModal('Transaktionen in diesem Monat', currentMonthTransactions, transactionColumns, 'In diesem Monat gab es keine Transaktionen.')
+    },
+  ];
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
@@ -183,20 +291,21 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
-        <StatCard title="Kunden Gesamt" value={totalCustomers} icon={UsersIcon} color="bg-green-100 text-green-700" />
-        <StatCard title="Trails Gesamt" value={totalTrailsThisYear} icon={HeartIcon} color="bg-orange-100 text-orange-700" />
-        <StatCard
-          title="Guthaben"
-          value={totalBalance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-          icon={ClipboardIcon}
-          color="bg-blue-100 text-blue-700"
-        />
-        <StatCard
-          title="Transaktionen Monat"
-          value={monthlyTransactionsCount}
-          icon={RepeatIcon}
-          color="bg-purple-100 text-purple-700"
-        />
+        {customerStats.map((stat, index) => (
+          <button
+            key={index}
+            onClick={stat.onClick}
+            className="text-left transition-transform duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+            aria-label={`Details für ${stat.title} anzeigen`}
+          >
+            <StatCard
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              color={stat.color}
+            />
+          </button>
+        ))}
       </div>
 
       <Card className="mb-6 px-4 py-2">
@@ -291,6 +400,17 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
           <Table data={customerTableData} columns={columns} onRowClick={handleRowClick} />
         </div>
       </Card>
+      
+      {modalConfig && (
+        <DashboardInfoModal
+            isOpen={isInfoModalOpen}
+            onClose={() => setIsInfoModalOpen(false)}
+            title={modalConfig.title}
+            items={modalConfig.items}
+            columns={modalConfig.columns}
+            emptyStateMessage={modalConfig.emptyStateMessage}
+        />
+      )}
     </div>
   );
 };

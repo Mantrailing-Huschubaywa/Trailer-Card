@@ -34,8 +34,18 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    // Schließt das Modal nur, wenn direkt auf den Hintergrund geklickt wird, nicht auf den Inhalt.
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 p-4 sm:p-6 lg:p-8 flex items-start sm:items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 p-4 sm:p-6 lg:p-8 flex items-start sm:items-center justify-center"
+      onClick={handleBackdropClick}
+    >
       <div
         ref={modalRef}
         className={`relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto ${className}`}
