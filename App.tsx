@@ -9,7 +9,6 @@ import CustomerDetails from './pages/CustomerDetails';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
 import LoginPage from './pages/LoginPage';
-import LeaderboardPage from './pages/LeaderboardPage'; // NEU: Import der Bestenlisten-Seite
 import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum, TrainingSection } from './types';
 import { REFERENCE_DATE } from './constants';
 import { USE_MOCK_DATA } from './config';
@@ -445,7 +444,7 @@ if (customerInsertError) {
     await supabase.auth.signOut();
   };
   
-  if (isLoading && !location.pathname.startsWith('/leaderboard')) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="text-center">
@@ -453,15 +452,6 @@ if (customerInsertError) {
         </div>
       </div>
     );
-  }
-  
-  // Public routes that don't need the main layout or session
-  if (location.pathname.startsWith('/leaderboard')) {
-      return (
-          <Routes>
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-          </Routes>
-      );
   }
 
   return (
@@ -511,7 +501,6 @@ if (customerInsertError) {
       ) : (
         <Routes>
           <Route path="/login" element={<LoginPage onLogin={handleLogin} onRegister={handleRegister} />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="*" element={<Navigate replace to="/login" state={{ from: location }} />} />
         </Routes>
       )}

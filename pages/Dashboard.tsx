@@ -4,28 +4,17 @@ import Card from '../components/Card';
 import StatCard from '../components/StatCard';
 import { REFERENCE_DATE } from '../constants';
 import Avatar from '../components/Avatar';
-import { ArrowUpCircleIcon, ArrowDownCircleIcon, UsersIcon, DollarSignIcon, ClipboardIcon, RepeatIcon, AwardIcon } from '../components/Icons';
+import { ArrowUpCircleIcon, ArrowDownCircleIcon, UsersIcon, DollarSignIcon, ClipboardIcon, RepeatIcon } from '../components/Icons';
 import { Link } from 'react-router-dom';
 import { parseDateString, isSameDay, isSameMonth } from '../utils';
 import { Customer, Transaction, User } from '../types';
 import DashboardInfoModal from '../components/DashboardInfoModal';
 import { Column } from '../components/Table';
-import Button from '../components/Button';
 
 interface DashboardProps {
   customers: Customer[];
   transactions: Transaction[];
   currentUser: User | null;
-}
-
-interface LeaderboardItem {
-    id: string;
-    rank: number;
-    avatarInitials: string;
-    avatarColor: string;
-    customerName: string;
-    dogName: string;
-    totalTrails: number;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentUser }) => {
@@ -120,51 +109,6 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
     }
   ], [customerMap]);
 
-  const leaderboardData = useMemo(() => {
-    return customers
-      .map(c => ({
-        id: c.id,
-        avatarInitials: c.avatarInitials,
-        avatarColor: c.avatarColor,
-        customerName: `${c.firstName} ${c.lastName}`,
-        dogName: c.dogName,
-        totalTrails: c.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0),
-      }))
-      .sort((a, b) => b.totalTrails - a.totalTrails)
-      .slice(0, 10) // Get top 10
-      .map((c, index) => ({ ...c, rank: index + 1 }));
-  }, [customers]);
-  
-  const leaderboardColumns: Column<LeaderboardItem>[] = useMemo(() => [
-    {
-      key: 'rank',
-      header: '#',
-      render: (item) => <span className="font-bold text-lg text-gray-700">{item.rank}</span>,
-      className: 'text-center',
-      headerClassName: 'text-center',
-    },
-    {
-      key: 'customerName',
-      header: 'Kunde',
-      render: (item) => (
-        <div className="flex items-center">
-          <Avatar initials={item.avatarInitials} color={item.avatarColor} size="md" className="mr-3" />
-          <div>
-            <p className="font-medium text-gray-900">{item.customerName}</p>
-            <p className="text-sm text-gray-500">{item.dogName}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'totalTrails',
-      header: 'Absolvierte Trails',
-      render: (item) => <span className="font-bold text-blue-600 text-lg">{item.totalTrails}</span>,
-      className: 'text-right',
-      headerClassName: 'text-right',
-    },
-  ], []);
-
   const dashboardStats = [
     { 
       title: 'Kunden Gesamt', 
@@ -213,19 +157,8 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
 
   return (
     <div className="p-6 md:p-8 lg:p-10">
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{welcomeMessage}</h1>
-          <p className="text-gray-600">Übersicht ihrer Trails-Wertkarten</p>
-        </div>
-        <Button 
-            variant="secondary" 
-            icon={AwardIcon}
-            onClick={() => handleOpenModal('Top 10 - Bestenliste', leaderboardData, leaderboardColumns, 'Keine Kundendaten für eine Bestenliste vorhanden.')}
-        >
-            Bestenliste
-        </Button>
-      </div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">{welcomeMessage}</h1>
+      <p className="text-gray-600 mb-8">Übersicht ihrer Trails-Wertkarten</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {dashboardStats.map((stat, index) => (
