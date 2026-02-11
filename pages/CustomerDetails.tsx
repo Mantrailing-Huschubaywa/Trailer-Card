@@ -13,6 +13,7 @@ import CustomerFormModal from '../components/CustomerFormModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
 import BankDetailsModal from '../components/BankDetailsModal';
 import CustomAmountModal from '../components/CustomAmountModal';
+import TrailBadges from '../components/TrailBadges'; // NEU: Importiert die ausgelagerte Komponente
 import {
   ArrowLeftIcon,
   PawPrintIcon,
@@ -22,11 +23,6 @@ import {
   AwardIcon,
   UserIcon,
   EditIcon,
-  TrailBadgeOnTheWayIcon,
-  TrailBadge10Icon,
-  TrailBadge50Icon,
-  TrailBadge100Icon,
-  TrailBadge500Icon,
   SeminarEventPatchIcon,
   BankIcon,
 } from '../components/Icons';
@@ -158,96 +154,6 @@ const getTrainingInfoByTrails = (totalTrails: number) => {
   const levelDisplay = `${Math.floor(totalTrails / 10) * 10}+`;
   
   return { level, cardClasses, totalTrails, levelDisplay };
-};
-
-// Neue Komponente zur Anzeige der Trail-Meilenstein-Abzeichen ("Trophäensammlung")
-const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
-  // For new customers with less than 10 trails, show the "On the Way" badge.
-  if (totalTrails < 10) {
-    return (
-      <div className="flex justify-center items-center py-4 min-h-[140px]">
-        <TrailBadgeOnTheWayIcon
-          className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
-        />
-      </div>
-    );
-  }
-
-  const badgeGroups = [];
-  let remainingTrails = totalTrails;
-
-  // --- Render 500s badges ---
-  const num500 = Math.floor(remainingTrails / 500);
-  if (num500 > 0) {
-    const currentGroup = [];
-    for (let i = 0; i < num500; i++) {
-      currentGroup.push(
-        <div key={`500-${i}`} className="relative first:ml-0 -ml-14">
-          <TrailBadge500Icon
-            className="h-44 w-44 [filter:drop-shadow(0_5px_4px_rgba(0,0,0,0.25))]"
-          />
-        </div>
-      );
-    }
-    badgeGroups.push(<div key="group-500" className="flex items-center">{currentGroup}</div>);
-    remainingTrails %= 500;
-  }
-
-  // --- Render 100s badges ---
-  const num100 = Math.floor(remainingTrails / 100);
-  if (num100 > 0) {
-    const currentGroup = [];
-    for (let i = 0; i < num100; i++) {
-      currentGroup.push(
-        <div key={`100-${i}`} className="relative first:ml-0 -ml-12">
-          <TrailBadge100Icon
-            className="h-40 w-40 [filter:drop-shadow(0_4px_3px_rgba(0,0,0,0.25))]"
-          />
-        </div>
-      );
-    }
-    badgeGroups.push(<div key="group-100" className="flex items-center">{currentGroup}</div>);
-    remainingTrails %= 100;
-  }
-
-  // --- Render 50s badges ---
-  const num50 = Math.floor(remainingTrails / 50);
-  if (num50 > 0) {
-    const currentGroup = [];
-    for (let i = 0; i < num50; i++) {
-      currentGroup.push(
-        <div key={`50-${i}`} className="relative first:ml-0 -ml-12">
-          <TrailBadge50Icon
-            className="h-36 w-36 [filter:drop-shadow(0_3px_2px_rgba(0,0,0,0.25))]"
-          />
-        </div>
-      );
-    }
-    badgeGroups.push(<div key="group-50" className="flex items-center">{currentGroup}</div>);
-    remainingTrails %= 50;
-  }
-  
-  // --- Render 10s badges ---
-  const num10 = Math.floor(remainingTrails / 10);
-  if (num10 > 0) {
-    const currentGroup = [];
-    for (let i = 0; i < num10; i++) {
-       currentGroup.push(
-        <div key={`10-${i}`} className="relative first:ml-0 -ml-11">
-          <TrailBadge10Icon
-            className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
-          />
-        </div>
-      );
-    }
-    badgeGroups.push(<div key="group-10" className="flex items-center">{currentGroup}</div>);
-  }
-
-  return (
-    <div className="flex justify-center items-center flex-wrap gap-x-6 gap-y-4 py-4 min-h-[140px]">
-      {badgeGroups}
-    </div>
-  );
 };
 
 // NEUE KOMPONENTE: Anzeige der Seminar/Event-Abzeichen
