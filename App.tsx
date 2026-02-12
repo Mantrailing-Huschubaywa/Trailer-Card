@@ -512,7 +512,7 @@ if (customerInsertError) {
       ) : (
         <Routes>
           <Route path="/login" element={<LoginPage supabase={supabase} onLogin={handleLogin} onRegister={handleRegister} isUpdatingPassword={isUpdatingPassword} />} />
-          <Route path="*" element={<Navigate replace to="/login" state={{ from: location }} />} />
+          <Route path="*" element={<LoginPage supabase={supabase} onLogin={handleLogin} onRegister={handleRegister} isUpdatingPassword={isUpdatingPassword} />} />
         </Routes>
       )}
     </div>
