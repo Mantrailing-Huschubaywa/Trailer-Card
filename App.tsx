@@ -98,6 +98,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation(); // Get current location for deep linking
@@ -151,8 +152,14 @@ const App: React.FC = () => {
       setSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsUpdatingPassword(true);
+      } else if (isUpdatingPassword) {
+        // Any other event should clear the flag.
+        setIsUpdatingPassword(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -161,6 +168,11 @@ const App: React.FC = () => {
   // Effect 2: Fetches data when the session changes and handles post-login navigation.
   useEffect(() => {
     if (!supabase) return;
+
+    if (isUpdatingPassword) {
+      setIsLoading(false);
+      return;
+    }
 
     const fetchInitialData = async (currentSession: Session) => {
       setIsLoading(true);
@@ -239,7 +251,7 @@ const App: React.FC = () => {
       setUsers([]);
       setIsLoading(false);
     }
-  }, [session, supabase]);
+  }, [session, supabase, isUpdatingPassword]);
   
   // Effect 3: Handles navigation for logged-in customers.
   useEffect(() => {
@@ -456,7 +468,7 @@ if (customerInsertError) {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {session && currentUser ? (
+      {session && currentUser && !isUpdatingPassword ? (
         <>
           <MobileHeader onToggleSidebar={toggleMobileSidebar} />
           <Sidebar
