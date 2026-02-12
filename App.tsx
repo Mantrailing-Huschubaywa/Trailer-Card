@@ -156,8 +156,7 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'PASSWORD_RECOVERY') {
         setIsUpdatingPassword(true);
-      } else if (isUpdatingPassword) {
-        // Any other event should clear the flag.
+      } else if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
         setIsUpdatingPassword(false);
       }
     });
@@ -512,7 +511,7 @@ if (customerInsertError) {
         </>
       ) : (
         <Routes>
-          <Route path="/login" element={<LoginPage supabase={supabase} onLogin={handleLogin} onRegister={handleRegister} />} />
+          <Route path="/login" element={<LoginPage supabase={supabase} onLogin={handleLogin} onRegister={handleRegister} isUpdatingPassword={isUpdatingPassword} />} />
           <Route path="*" element={<Navigate replace to="/login" state={{ from: location }} />} />
         </Routes>
       )}

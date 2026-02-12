@@ -10,12 +10,13 @@ interface LoginPageProps {
   supabase: SupabaseClient | null;
   onLogin: (email: string, password: string) => Promise<string | null>;
   onRegister: (email: string, password: string) => Promise<string | null>;
+  isUpdatingPassword?: boolean;
 }
 
 type View = 'login' | 'register' | 'forgotPassword' | 'updatePassword' | 'successMessage';
 
-const LoginPage: React.FC<LoginPageProps> = ({ supabase, onLogin, onRegister }) => {
-  const [view, setView] = useState<View>('login');
+const LoginPage: React.FC<LoginPageProps> = ({ supabase, onLogin, onRegister, isUpdatingPassword = false }) => {
+  const [view, setView] = useState<View>(isUpdatingPassword ? 'updatePassword' : 'login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,13 +31,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ supabase, onLogin, onRegister }) 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Effect to detect password recovery link
+  // Effect to sync view with prop, in case the prop changes while component is mounted.
   useEffect(() => {
-    // Check for the recovery token in the URL hash
-    if (window.location.hash.includes('type=recovery')) {
+    if (isUpdatingPassword) {
       setView('updatePassword');
     }
-  }, []);
+  }, [isUpdatingPassword]);
 
   const resetFormState = () => {
     setEmail('');
@@ -111,8 +111,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ supabase, onLogin, onRegister }) 
     if (error) {
       setApiError(`Fehler beim Aktualisieren des Passworts: ${error.message}`);
     } else {
-      // Clear the hash from the URL
-      window.history.replaceState(null, '', window.location.pathname);
       setSuccessMessage('Ihr Passwort wurde erfolgreich aktualisiert. Sie können sich jetzt mit Ihrem neuen Passwort anmelden.');
       setView('successMessage');
     }
