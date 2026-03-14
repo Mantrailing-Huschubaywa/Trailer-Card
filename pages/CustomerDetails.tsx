@@ -31,8 +31,9 @@ import {
   BankIcon,
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
-import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection } from '../types';
+import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection, Document } from '../types';
 import { getAvatarColorForLevel, parseDateString } from '../utils';
+import { getSupabaseClient } from '../supabaseClient';
 
 // --- NEUES MODAL FÜR STARTWERTE ---
 interface SetInitialValuesModalProps {
@@ -323,6 +324,86 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isCustomAmountModalOpen, setIsCustomAmountModalOpen] = useState(false);
   const [customTransactionType, setCustomTransactionType] = useState<'Aufladung' | 'Abbuchung'>('Aufladung');
   const [customTransactionDescription, setCustomTransactionDescription] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !customer) return;
+
+    setIsUploading(true);
+    setUploadError('');
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setUploadError('Supabase Client nicht initialisiert.');
+      setIsUploading(false);
+      return;
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${customer.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      const newDocument: Document = {
+        id: filePath,
+        name: file.name,
+        url: publicUrl,
+      };
+
+      const updatedDocuments = [...(customer.documents || []), newDocument];
+      const updatedCustomer = { ...customer, documents: updatedDocuments };
+
+      onUpdateCustomer(updatedCustomer);
+      
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      setUploadError(error.message || 'Fehler beim Hochladen des Dokuments.');
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!customer || !documentToDelete) return;
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    try {
+      const { error: deleteError } = await supabase.storage
+        .from('documents')
+        .remove([documentToDelete.id]);
+
+      if (deleteError) {
+        console.error('Error deleting from storage:', deleteError);
+      }
+
+      const updatedDocuments = (customer.documents || []).filter(doc => doc.id !== documentToDelete.id);
+      const updatedCustomer = { ...customer, documents: updatedDocuments };
+
+      onUpdateCustomer(updatedCustomer);
+    } catch (error) {
+      console.error('Error deleting document:', error);
+    } finally {
+      setDocumentToDelete(null);
+    }
+  };
 
   useEffect(() => {
     setIsLoadingCustomer(true);
@@ -735,6 +816,75 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <QRCodeDisplay dataUrl={customer.qrCodeData} className="mb-3" />
             <p className="text-sm text-gray-600">Scannen, um diese Kundenkarte schnell aufzurufen.</p>
           </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-900">Dokumente</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
+            <div className="space-y-4">
+              {customer.documents && customer.documents.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {customer.documents.map((doc) => {
+                    const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.name.split('.').pop()?.toLowerCase() || '');
+                    return (
+                      <div key={doc.id} className="relative group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex flex-col">
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block flex-grow">
+                          {isImg ? (
+                            <div className="aspect-square w-full">
+                              <img src={doc.url} alt={doc.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="aspect-square w-full flex items-center justify-center bg-gray-100 text-gray-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </a>
+                        <div className="p-2 flex items-center justify-between bg-white border-t border-gray-200">
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-gray-700 hover:text-blue-600 truncate flex-grow" title={doc.name}>
+                            {doc.name}
+                          </a>
+                          <button
+                            onClick={() => setDocumentToDelete({ id: doc.id, name: doc.name })}
+                            className="text-red-500 hover:text-red-700 p-1 ml-1 flex-shrink-0"
+                            title="Dokument löschen"
+                            disabled={isUploading}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Keine Dokumente vorhanden.</p>
+              )}
+
+              <div className="mt-4">
+                <label className="block">
+                  <span className="sr-only">Dokument auswählen</span>
+                  <input
+                    type="file"
+                    className="block w-full text-sm text-slate-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100
+                      cursor-pointer"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  />
+                </label>
+                {isUploading && <p className="text-sm text-blue-600 mt-2">Wird hochgeladen...</p>}
+                {uploadError && <p className="text-sm text-red-600 mt-2">{uploadError}</p>}
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
       <TransactionConfirmationModal
@@ -784,6 +934,19 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setIsBankDetailsModalOpen(false)}
         customer={customer}
       />
+      <Modal
+        isOpen={!!documentToDelete}
+        onClose={() => setDocumentToDelete(null)}
+        title="Dokument löschen"
+      >
+        <div className="p-4">
+          <p className="mb-4">Möchten Sie das Dokument <strong>{documentToDelete?.name}</strong> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={() => setDocumentToDelete(null)}>Abbrechen</Button>
+            <Button variant="danger" onClick={confirmDeleteDocument}>Löschen</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
