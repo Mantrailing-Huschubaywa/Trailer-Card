@@ -327,6 +327,26 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [documentToView, setDocumentToView] = useState<{ id: string, name: string, url: string } | null>(null);
+
+  const handleDownloadDocument = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Netzwerk-Antwort war nicht ok');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Fehler beim Herunterladen:', error);
+      alert('Das Dokument konnte nicht heruntergeladen werden.');
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -827,7 +847,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.name.split('.').pop()?.toLowerCase() || '');
                     return (
                       <div key={doc.id} className="relative group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex flex-col">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block flex-grow">
+                        <button onClick={() => setDocumentToView(doc)} className="block flex-grow text-left focus:outline-none focus:ring-2 focus:ring-blue-500">
                           {isImg ? (
                             <div className="aspect-square w-full">
                               <img src={doc.url} alt={doc.name} className="w-full h-full object-cover" />
@@ -839,21 +859,32 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                               </svg>
                             </div>
                           )}
-                        </a>
+                        </button>
                         <div className="p-2 flex items-center justify-between bg-white border-t border-gray-200">
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-gray-700 hover:text-blue-600 truncate flex-grow" title={doc.name}>
+                          <button onClick={() => setDocumentToView(doc)} className="text-xs font-medium text-gray-700 hover:text-blue-600 truncate flex-grow text-left focus:outline-none" title={doc.name}>
                             {doc.name}
-                          </a>
-                          <button
-                            onClick={() => setDocumentToDelete({ id: doc.id, name: doc.name })}
-                            className="text-red-500 hover:text-red-700 p-1 ml-1 flex-shrink-0"
-                            title="Dokument löschen"
-                            disabled={isUploading}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
                           </button>
+                          <div className="flex items-center flex-shrink-0">
+                            <button
+                              onClick={() => handleDownloadDocument(doc.url, doc.name)}
+                              className="text-gray-500 hover:text-blue-600 p-1"
+                              title="Dokument herunterladen"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => setDocumentToDelete({ id: doc.id, name: doc.name })}
+                              className="text-red-500 hover:text-red-700 p-1 ml-1"
+                              title="Dokument löschen"
+                              disabled={isUploading}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -945,6 +976,42 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <Button variant="outline" onClick={() => setDocumentToDelete(null)}>Abbrechen</Button>
             <Button variant="danger" onClick={confirmDeleteDocument}>Löschen</Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!documentToView}
+        onClose={() => setDocumentToView(null)}
+        title={documentToView?.name || 'Dokument'}
+      >
+        <div className="p-4 flex flex-col items-center">
+          {documentToView && (
+            <>
+              <div className="w-full max-h-[60vh] overflow-auto flex justify-center items-center bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                {['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(documentToView.name.split('.').pop()?.toLowerCase() || '') ? (
+                  <img src={documentToView.url} alt={documentToView.name} className="max-w-full max-h-[60vh] object-contain" />
+                ) : documentToView.name.toLowerCase().endsWith('.pdf') ? (
+                  <iframe src={documentToView.url} className="w-full h-[60vh]" title={documentToView.name} />
+                ) : (
+                  <div className="p-12 flex flex-col items-center text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-gray-600">Keine Vorschau verfügbar</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end w-full space-x-3">
+                <Button variant="outline" onClick={() => setDocumentToView(null)}>Schließen</Button>
+                <Button onClick={() => handleDownloadDocument(documentToView.url, documentToView.name)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Herunterladen
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>
