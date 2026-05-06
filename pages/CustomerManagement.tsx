@@ -105,7 +105,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
           <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="md" className="mr-3" />
           <div>
             <p className="font-medium text-gray-900">{customer.firstName} {customer.lastName}</p>
-            <p className="text-sm text-gray-500">{customer.dogName}</p>
+            <p className="text-sm text-gray-500">{customer.dogs?.map(d => d.name).join(', ') || 'Kein Hund'}</p>
           </div>
         </div>
       ),
@@ -208,10 +208,15 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       avatarInitials: customer.avatarInitials,
       avatarColor: customer.avatarColor,
       name: `${customer.firstName} ${customer.lastName}\n${customer.id}`,
-      dog: customer.dogName,
+      dog: customer.dogs?.map(d => d.name).join(', ') || 'Kein Hund',
       balance: customer.balance,
-      level: customer.level,
-      totalTrails: customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0),
+      level: customer.dogs && customer.dogs.length > 0 ? customer.dogs.reduce((maxDog, currentDog) => {
+        const order = Object.values(TrainingLevelEnum);
+        const currentIndex = order.indexOf(currentDog.level);
+        const maxIndex = order.indexOf(maxDog.level);
+        return currentIndex > maxIndex ? currentDog : maxDog;
+      }, customer.dogs[0]).level : TrainingLevelEnum.EINSTEIGER,
+      totalTrails: customer.dogs ? customer.dogs.reduce((sum, dog) => sum + (dog.trainingProgress || []).reduce((s, section) => s + section.completedHours, 0), 0) : 0,
       created_at: customer.created_at,
     }));
   }, [filteredCustomers]);

@@ -50,7 +50,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
           <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="md" className="mr-3" />
           <div>
             <p className="font-medium text-gray-900">{customer.firstName} {customer.lastName}</p>
-            <p className="text-sm text-gray-500">{customer.dogName}</p>
+            <p className="text-sm text-gray-500">{customer.dogs?.map(d => d.name).join(', ') || 'Kein Hund'}</p>
           </div>
         </div>
       ),
@@ -192,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
                     <Avatar initials={customer.avatarInitials} color={customer.avatarColor} size="md" className="mr-3" />
                     <div>
                       <p className="font-medium text-gray-900">{customer.firstName} {customer.lastName}</p>
-                      <p className="text-sm text-gray-500">{customer.dogName}</p>
+                      <p className="text-sm text-gray-500">{customer.dogs?.map(d => d.name).join(', ') || 'Kein Hund'}</p>
                     </div>
                   </div>
                   <p className="font-semibold text-gray-800">{customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</p>

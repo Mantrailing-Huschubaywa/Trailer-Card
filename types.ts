@@ -2,6 +2,14 @@
 import React from 'react';
 
 
+export interface Dog {
+  id: string;
+  name: string;
+  chipNumber: string;
+  level: TrainingLevelEnum; // New
+  trainingProgress: TrainingSection[]; // New
+}
+
 export interface Customer {
   id: string;
   avatarInitials: string;
@@ -10,16 +18,13 @@ export interface Customer {
   lastName: string;
   email: string;
   phone: string;
-  dogName: string;
-  chipNumber: string;
   balance: number;
   totalTransactions: number;
-  level: TrainingLevelEnum;
   created_at: string; // Date string (e.g., '9.2.2025')
   createdBy: string;
   qrCodeData: string; // URL for QR code image
   documents: Document[];
-  trainingProgress: TrainingSection[];
+  dogs: Dog[]; // Array of dog objects
 }
 
 // New type for the customer editing form
@@ -28,13 +33,13 @@ export interface NewCustomerData {
   lastName: string;
   email: string; // Will be read-only in the form
   phone: string;
-  dogName: string;
-  chipNumber: string;
+  dogs: Dog[];
 }
 
 export interface Transaction {
   id: string;
   customerId: string;
+  dogId?: string; // Neu: Verknüpfung mit einem bestimmten Hund
   type: 'recharge' | 'debit';
   description: string;
   amount: number;
@@ -94,6 +99,7 @@ export interface CustomerTableData {
 export interface TransactionConfirmationData {
   customerId: string;
   customerName: string;
+  dogId?: string; // Neu: Verknüpfung mit einem bestimmten Hund
   employee: string;
   transactionType: 'Aufladung' | 'Abbuchung';
   amount: number;

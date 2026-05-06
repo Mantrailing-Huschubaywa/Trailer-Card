@@ -29,9 +29,10 @@ import {
   TrailBadge500Icon,
   SeminarEventPatchIcon,
   BankIcon,
+  HeartIcon,
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
-import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection, Document } from '../types';
+import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection, Document, Dog } from '../types';
 import { getAvatarColorForLevel, parseDateString } from '../utils';
 import { getSupabaseClient } from '../supabaseClient';
 
@@ -39,38 +40,49 @@ import { getSupabaseClient } from '../supabaseClient';
 interface SetInitialValuesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (totalTrails: number, totalSeminars: number) => void;
-  currentTrails: number;
+  onSubmit: (dogTrails: Record<string, number>, totalSeminars: number) => void;
+  dogs: Dog[];
   currentSeminars: number;
 }
 
-const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, currentTrails, currentSeminars }) => {
-  const [trails, setTrails] = useState(currentTrails.toString());
+const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs, currentSeminars }) => {
+  const [dogTrails, setDogTrails] = useState<Record<string, string>>({});
   const [seminars, setSeminars] = useState(currentSeminars.toString());
-  const [trailsError, setTrailsError] = useState('');
+  const [dogTrailsErrors, setDogTrailsErrors] = useState<Record<string, string>>({});
   const [seminarsError, setSeminarsError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setTrails(currentTrails.toString());
+      const initialTrails: Record<string, string> = {};
+      dogs.forEach(d => {
+        const td = (d.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0);
+        initialTrails[d.id] = td.toString();
+      });
+      setDogTrails(initialTrails);
       setSeminars(currentSeminars.toString());
-      setTrailsError('');
+      setDogTrailsErrors({});
       setSeminarsError('');
     }
-  }, [isOpen, currentTrails, currentSeminars]);
+  }, [isOpen, dogs, currentSeminars]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const numTrails = parseInt(trails, 10);
-    const numSeminars = parseInt(seminars, 10);
     let hasError = false;
+    const numSeminars = parseInt(seminars, 10);
+    const parsedDogTrails: Record<string, number> = {};
+    const newDogErrors: Record<string, string> = {};
 
-    if (isNaN(numTrails) || numTrails < 0) {
-      setTrailsError('Bitte eine gültige, positive Zahl eingeben.');
-      hasError = true;
-    } else {
-      setTrailsError('');
-    }
+    dogs.forEach(d => {
+      const val = parseInt(dogTrails[d.id] || '0', 10);
+      if (isNaN(val) || val < 0) {
+        newDogErrors[d.id] = 'Bitte eine gültige, positive Zahl eingeben.';
+        hasError = true;
+      } else {
+        parsedDogTrails[d.id] = val;
+      }
+    });
+
+    setDogTrailsErrors(newDogErrors);
 
     if (isNaN(numSeminars) || numSeminars < 0) {
       setSeminarsError('Bitte eine gültige, positive Zahl eingeben.');
@@ -80,7 +92,7 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
     }
 
     if (!hasError) {
-      onSubmit(numTrails, numSeminars);
+      onSubmit(parsedDogTrails, numSeminars);
     }
   };
 
@@ -89,19 +101,22 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
       <form onSubmit={handleSubmit} className="p-0">
         <div className="space-y-4">
           <p className="text-gray-600">
-            Geben Sie die Gesamtzahl der Trails und Seminare/Events ein, die dieser Kunde bereits absolviert hat.
-            Der Fortschritt und die Zählung werden entsprechend angepasst.
+            Geben Sie die Gesamtzahl der absolvierten Trails pro Hund und die absolute Anzahl der besuchten Seminare/Events des Kunden ein.
           </p>
-          <Input
-            id="totalTrails"
-            label="Gesamtzahl der absolvierten Trails"
-            type="number"
-            value={trails}
-            onChange={(e) => setTrails(e.target.value)}
-            min="0"
-            error={trailsError}
-            autoFocus
-          />
+          
+          {dogs.map(dog => (
+            <Input
+              key={dog.id}
+              id={`totalTrails-${dog.id}`}
+              label={`Trails für ${dog.name || 'Unbenannt'}`}
+              type="number"
+              value={dogTrails[dog.id] || ''}
+              onChange={(e) => setDogTrails(prev => ({ ...prev, [dog.id]: e.target.value }))}
+              min="0"
+              error={dogTrailsErrors[dog.id]}
+            />
+          ))}
+
           <Input
             id="totalSeminars"
             label="Gesamtzahl der Seminare & Events"
@@ -317,6 +332,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isTransactionHistoryModalOpen, setIsTransactionHistoryModalOpen] = useState(false);
   const [transactionData, setTransactionData] = useState<TransactionConfirmationData | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSetInitialValuesModalOpen, setIsSetInitialValuesModalOpen] = useState(false);
@@ -326,6 +342,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [customTransactionDescription, setCustomTransactionDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [isAllDogsTrailsModalOpen, setIsAllDogsTrailsModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
   const [documentToView, setDocumentToView] = useState<{ id: string, name: string, url: string } | null>(null);
 
@@ -430,11 +447,25 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     if (id) {
       const foundCustomer = customers.find((c) => c.id === id);
       setCustomer(foundCustomer || null);
+      if (foundCustomer && foundCustomer.dogs && foundCustomer.dogs.length > 0 && !selectedDogId) {
+        setSelectedDogId(foundCustomer.dogs[0].id);
+      }
     } else {
       setCustomer(null);
     }
     setIsLoadingCustomer(false);
   }, [id, customers]);
+
+  const selectedDog = customer?.dogs?.find(d => d.id === selectedDogId) || customer?.dogs?.[0];
+
+  useEffect(() => {
+    if (customer && customer.dogs && customer.dogs.length > 0) {
+       // if current selectedDogId is not in list, fallback
+       if (!customer.dogs.find(d => d.id === selectedDogId)) {
+          setSelectedDogId(customer.dogs[0].id);
+       }
+    }
+  }, [customer, selectedDogId]);
 
   // Authorization Effect: Redirect if a customer tries to access another customer's page
   useEffect(() => {
@@ -474,12 +505,13 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     );
   }
 
-  const handleOpenConfirmationModal = (amount: number, type: 'Aufladung' | 'Abbuchung', description?: string) => {
+  const handleOpenConfirmationModal = (amount: number, type: 'Aufladung' | 'Abbuchung', description?: string, dogId?: string) => {
     const oldBalance = customer.balance;
     const newBalance = type === 'Aufladung' ? oldBalance + amount : oldBalance - amount;
     setTransactionData({
       customerId: customer.id,
       customerName: `${customer.firstName} ${customer.lastName}`,
+      dogId,
       employee: `${currentUser.firstName} ${currentUser.lastName}`,
       transactionType: type,
       amount: amount,
@@ -499,40 +531,52 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
     const isRecharge = transactionData.transactionType === 'Aufladung';
     
-    if (!isRecharge && transactionData.description === 'Mantrailing' && transactionData.amount === 18) {
-      const currentTrainingProgress: TrainingSection[] = JSON.parse(JSON.stringify(customer.trainingProgress));
-      
-      let trailAdded = false;
-      const currentLevelIndex = currentTrainingProgress.findIndex(s => s.status === 'Aktuell');
-
-      if (currentLevelIndex !== -1) {
-          const currentSection = currentTrainingProgress[currentLevelIndex];
-          if (currentSection.name === TrainingLevelEnum.EXPERT) {
-              currentSection.completedHours += 1;
-              trailAdded = true;
-          } else if (currentSection.completedHours < currentSection.requiredHours) {
-              currentSection.completedHours += 1;
-              trailAdded = true;
-              if (currentSection.completedHours === currentSection.requiredHours) {
-                  currentSection.status = 'Abgeschlossen';
-                  const nextLevelIndex = currentLevelIndex + 1;
-                  if (nextLevelIndex < currentTrainingProgress.length) {
-                      currentTrainingProgress[nextLevelIndex].status = 'Aktuell';
-                  }
-              }
-          }
+    // Allow for extensions like "Mantrailing (Bello)"
+    if (!isRecharge && transactionData.description && transactionData.description.startsWith('Mantrailing') && transactionData.amount === 18) {
+      let targetDogId = transactionData.dogId;
+      if (!targetDogId && customer.dogs && customer.dogs.length > 0) {
+        targetDogId = customer.dogs[0].id; // Fallback
       }
 
-      if (!trailAdded && currentTrainingProgress.length > 0) {
-          currentTrainingProgress[0].completedHours += 1;
+      let updatedDogs = [...(customer.dogs || [])];
+      let targetDogIndex = updatedDogs.findIndex(d => d.id === targetDogId);
+      if (targetDogIndex === -1 && updatedDogs.length > 0) targetDogIndex = 0;
+
+      if (targetDogIndex !== -1) {
+        const currentTrainingProgress: TrainingSection[] = JSON.parse(JSON.stringify(updatedDogs[targetDogIndex].trainingProgress || []));
+        
+        let trailAdded = false;
+        const currentLevelIndex = currentTrainingProgress.findIndex(s => s.status === 'Aktuell');
+
+        if (currentLevelIndex !== -1) {
+            const currentSection = currentTrainingProgress[currentLevelIndex];
+            if (currentSection.name === TrainingLevelEnum.EXPERT) {
+                currentSection.completedHours += 1;
+                trailAdded = true;
+            } else if (currentSection.completedHours < currentSection.requiredHours) {
+                currentSection.completedHours += 1;
+                trailAdded = true;
+                if (currentSection.completedHours === currentSection.requiredHours) {
+                    currentSection.status = 'Abgeschlossen';
+                    const nextLevelIndex = currentLevelIndex + 1;
+                    if (nextLevelIndex < currentTrainingProgress.length) {
+                        currentTrainingProgress[nextLevelIndex].status = 'Aktuell';
+                    }
+                }
+            }
+        }
+
+        if (!trailAdded && currentTrainingProgress.length > 0) {
+            currentTrainingProgress[0].completedHours += 1;
+        }
+        
+        const newTotalTrails = currentTrainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+        const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
+        
+        updatedDogs[targetDogIndex].level = newTrainingInfo.level;
+        updatedDogs[targetDogIndex].trainingProgress = currentTrainingProgress;
+        finalUpdatedCustomer.dogs = updatedDogs;
       }
-      
-      finalUpdatedCustomer.trainingProgress = currentTrainingProgress;
-      
-      const newTotalTrails = currentTrainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
-      const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
-      finalUpdatedCustomer.level = newTrainingInfo.level;
-      finalUpdatedCustomer.avatarColor = getAvatarColorForLevel(newTrainingInfo.level);
     }
 
     onUpdateCustomer(finalUpdatedCustomer);
@@ -540,6 +584,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     const newTransaction: Omit<Transaction, 'created_at'> = {
       id: `trx-${transactions.length + 1}-${Date.now()}`,
       customerId: customer.id,
+      dogId: transactionData.dogId,
       type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
       description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Unbekannt'),
       amount: transactionData.amount,
@@ -551,7 +596,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTransactionData(null);
   };
   
-  const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit') => {
+  const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit', selectedDog?: Dog) => {
     setShowTransactionTypeModal(false);
     if (!customer) return;
 
@@ -566,9 +611,11 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         setCustomTransactionDescription('Seminar/Event');
         setIsCustomAmountModalOpen(true);
         break;
-      case 'Mantrailing':
-        handleOpenConfirmationModal(18, 'Abbuchung', 'Mantrailing');
+      case 'Mantrailing': {
+        const desc = selectedDog ? `Mantrailing (${selectedDog.name})` : 'Mantrailing';
+        handleOpenConfirmationModal(18, 'Abbuchung', desc, selectedDog?.id);
         break;
+      }
     }
   };
 
@@ -585,7 +632,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleSetInitialValues = (newTotalTrails: number, newTotalSeminars: number) => {
+  const handleSetInitialValues = (dogTrails: Record<string, number>, newTotalSeminars: number) => {
     if (!customer) return;
   
     // --- SEMINAR VALIDATION ---
@@ -594,8 +641,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       alert(`Korrektur nicht möglich: Die eingegebene Gesamtzahl (${newTotalSeminars}) ist geringer als die Anzahl der bereits regulär gebuchten Seminare (${regularWorkshops.length}).`);
       return; // Abort without closing modal
     }
-  
-    // --- TRAIL PROGRESS CALCULATION ---
+
     const levelsConfig = [
       { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
       { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
@@ -603,35 +649,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
       { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
     ];
-    let remainingTrails = newTotalTrails;
-    let newTrainingProgress: TrainingSection[] = [];
-    let hasFoundCurrent = false;
-    for (let i = 0; i < levelsConfig.length; i++) {
-      const levelConf = levelsConfig[i];
-      const completed = Math.min(remainingTrails, levelConf.required);
-      remainingTrails -= completed;
-      let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
-      if (completed > 0 && !hasFoundCurrent) {
-        if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
-          status = 'Aktuell';
-          hasFoundCurrent = true;
-        } else {
-          status = 'Abgeschlossen';
-        }
-      }
-      if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
-        status = 'Aktuell';
-        hasFoundCurrent = true;
-      }
-      newTrainingProgress.push({
-        id: i + 1, name: levelConf.name, requiredHours: levelConf.required,
-        completedHours: completed, status,
-      });
-    }
-    if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
-      newTrainingProgress[0].status = 'Aktuell';
-    }
-    const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
   
     // --- SEMINAR TRANSACTION ADJUSTMENT ---
     const bestandsuebernahmeWorkshops = customerTransactions.filter(t => t.description === 'Workshop (Bestandsübernahme)');
@@ -655,27 +672,71 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onAddTransaction(newSeminarTransaction);
       }
     }
-  
-    // --- TRAIL SUMMARY TRANSACTION (existing logic) ---
-    const trailTransaction: Omit<Transaction, 'created_at'> = {
-      id: `trx-${transactions.length + 1}-${Date.now()}`,
-      customerId: customer.id,
-      type: 'debit',
-      description: `Bestandsübernahme: ${newTotalTrails} Trails`,
-      amount: 0,
-      date: REFERENCE_DATE.toLocaleDateString('de-DE'),
-      employee: `${currentUser.firstName} ${currentUser.lastName}`,
-    };
-    onAddTransaction(trailTransaction);
+
+    let updatedDogs = [...(customer.dogs || [])];
+    let trailTransactionsToAdd = 0;
+
+    // --- TRAIL PROGRESS CALCULATION & TRANSACTIONS PER DOG ---
+    Object.entries(dogTrails).forEach(([dogId, newTotalTrails], index) => {
+      const dogIdx = updatedDogs.findIndex(d => d.id === dogId);
+      if (dogIdx === -1) return;
+
+      let remainingTrails = newTotalTrails;
+      let newTrainingProgress: TrainingSection[] = [];
+      let hasFoundCurrent = false;
+
+      for (let i = 0; i < levelsConfig.length; i++) {
+        const levelConf = levelsConfig[i];
+        const completed = Math.min(remainingTrails, levelConf.required);
+        remainingTrails -= completed;
+        let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
+        if (completed > 0 && !hasFoundCurrent) {
+          if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
+            status = 'Aktuell';
+            hasFoundCurrent = true;
+          } else {
+            status = 'Abgeschlossen';
+          }
+        }
+        if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
+          status = 'Aktuell';
+          hasFoundCurrent = true;
+        }
+        newTrainingProgress.push({
+          id: i + 1, name: levelConf.name, requiredHours: levelConf.required,
+          completedHours: completed, status,
+        });
+      }
+      if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
+        newTrainingProgress[0].status = 'Aktuell';
+      }
+      const newTrainingInfo = getTrainingInfoByTrails(newTotalTrails);
+      
+      updatedDogs[dogIdx].level = newTrainingInfo.level;
+      updatedDogs[dogIdx].trainingProgress = newTrainingProgress;
+
+      const dogName = updatedDogs[dogIdx].name || 'Hund';
+      const descTrail = `Bestandsübernahme ${dogName}: ${newTotalTrails} Trails`;
+      const trailTransaction: Omit<Transaction, 'created_at'> = {
+        id: `trx-trail-${dogId}-${Date.now()}-${index}`,
+        customerId: customer.id,
+        dogId: dogId,
+        type: 'debit',
+        description: descTrail,
+        amount: 0,
+        date: REFERENCE_DATE.toLocaleDateString('de-DE'),
+        employee: `${currentUser.firstName} ${currentUser.lastName}`,
+      };
+      onAddTransaction(trailTransaction);
+      trailTransactionsToAdd++;
+    });
   
     // --- FINAL CUSTOMER OBJECT UPDATE ---
-    const newTotalTransactions = customer.totalTransactions + diff + 1;
+    const newTotalTransactions = customer.totalTransactions + (diff > 0 ? diff : 0) + trailTransactionsToAdd;
   
     const finalUpdatedCustomer: Customer = {
       ...customer,
-      trainingProgress: newTrainingProgress,
-      level: newTrainingInfo.level,
-      avatarColor: getAvatarColorForLevel(newTrainingInfo.level),
+      dogs: updatedDogs,
       totalTransactions: newTotalTransactions,
     };
     onUpdateCustomer(finalUpdatedCustomer);
@@ -693,7 +754,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     </div>
   );
 
-  const totalTrails = customer.trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
+  const totalTrails = (selectedDog?.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0);
+  const allDogsTotalTrails = customer.dogs ? customer.dogs.reduce((sum, dog) => sum + (dog.trainingProgress || []).reduce((s, section) => s + section.completedHours, 0), 0) : 0;
   const totalSeminarsAndEvents = customerTransactions.filter(
     t => t.description === 'Workshop' || t.description === 'Workshop (Bestandsübernahme)' || t.description === 'Seminar/Event'
   ).length;
@@ -756,8 +818,37 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <DataRow Icon={UserIcon} label="Nachname" value={customer.lastName} />
                 <DataRow Icon={MailIcon} label="E-Mail" value={customer.email} />
                 <DataRow Icon={PhoneIcon} label="Telefon" value={customer.phone} />
-                <DataRow Icon={PawPrintIcon} label="Hund" value={customer.dogName} />
-                <DataRow Icon={CreditCardIcon} label="Chipnummer" value={customer.chipNumber} />
+                
+                <div className="sm:col-span-2 space-y-4 pt-2">
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Hunde ({customer.dogs?.length || 0})</h3>
+                  {customer.dogs && customer.dogs.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {customer.dogs.map(dog => (
+                        <div 
+                          key={dog.id} 
+                          onClick={() => setSelectedDogId(dog.id)}
+                          className={`border rounded-lg p-3 cursor-pointer transition-colors ${selectedDogId === dog.id ? 'bg-blue-50 border-blue-400 shadow-sm' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-semibold text-gray-900">{dog.name || 'Ohne Namen'}</span>
+                            {selectedDogId === dog.id ? (
+                              <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            ) : null}
+                          </div>
+                          <div className="text-xs text-gray-500 flex flex-col gap-1">
+                             <span>Chip: {dog.chipNumber || 'Keine Angabe'}</span>
+                             <span>Level: {dog.level || 'Einsteiger'}</span>
+                             <span className="text-blue-600 font-medium mt-1">Trails: {(dog.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <DataRow Icon={PawPrintIcon} label="Hund" value="Kein Hund eingetragen" />
+                  )}
+                </div>
               </div>
             </div>
           </Card>
@@ -777,19 +868,21 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <p className="text-sm text-gray-600 mb-1">Transaktionen gesamt</p>
                 <p className="text-2xl font-bold text-blue-700">{customer.totalTransactions}</p>
               </button>
-              <div className={`${trainingInfo.cardClasses.bg} p-4 rounded-lg flex flex-col justify-center items-center text-center`}>
-                <p className="text-sm text-gray-600 mb-1">Fortschritt</p>
+              <button
+                onClick={() => setIsAllDogsTrailsModalOpen(true)}
+                className="bg-orange-50 p-4 rounded-lg flex flex-col justify-center items-center text-center w-full hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+              >
+                <p className="text-sm text-gray-600 mb-1">Trails Gesamt</p>
                 <div className="flex items-center mt-2">
-                  <AwardIcon className={`h-10 w-10 mr-2 ${trainingInfo.cardClasses.icon}`} />
-                  <p className={`text-2xl font-bold ${trainingInfo.cardClasses.text}`}>{trainingInfo.levelDisplay}</p>
+                  <p className="text-2xl font-bold text-orange-700">{allDogsTotalTrails}</p>
                 </div>
-              </div>
+              </button>
             </div>
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="flex flex-col">
-              <h2 className="text-xl font-semibold text-gray-900">Meine Trails</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Trails von {selectedDog?.name || 'Hund'}</h2>
               <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
               <div className="bg-slate-100 p-6 flex flex-col items-center justify-center text-center flex-grow rounded-lg">
                   <TrailBadges totalTrails={trainingInfo.totalTrails} />
@@ -828,6 +921,31 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </Button>
                 </div>
             )}
+          </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-900">Level Übersicht von {selectedDog?.name || 'Hund'}</h2>
+            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
+            <div className="space-y-4">
+              {(selectedDog?.trainingProgress || []).map((section) => (
+                <div key={section.id}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-sm font-medium ${section.status === 'Aktuell' ? 'text-blue-700' : section.status === 'Abgeschlossen' ? 'text-green-700' : 'text-gray-500'}`}>
+                      {section.name}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-600">
+                      {section.completedHours} / {section.requiredHours > 1000 ? '∞' : section.requiredHours}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${section.status === 'Abgeschlossen' ? 'bg-green-500' : section.status === 'Aktuell' ? 'bg-blue-500' : 'bg-gray-300'}`}
+                      style={{ width: `${Math.min(100, (section.completedHours / section.requiredHours) * 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
 
           <Card className="text-center">
@@ -929,6 +1047,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setShowTransactionTypeModal(false)}
         onSelectType={handleSelectTransactionType}
         customerBalance={customer.balance}
+        dogs={customer.dogs}
       />
       <CustomerFormModal
         isOpen={isEditModalOpen}
@@ -946,7 +1065,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         isOpen={isSetInitialValuesModalOpen}
         onClose={() => setIsSetInitialValuesModalOpen(false)}
         onSubmit={handleSetInitialValues}
-        currentTrails={totalTrails}
+        dogs={customer.dogs || []}
         currentSeminars={totalSeminarsAndEvents}
       />
       <CustomAmountModal
@@ -965,6 +1084,52 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setIsBankDetailsModalOpen(false)}
         customer={customer}
       />
+
+      <Modal
+        isOpen={isAllDogsTrailsModalOpen}
+        onClose={() => setIsAllDogsTrailsModalOpen(false)}
+        title="Trails Gesamt"
+        className="max-w-2xl"
+      >
+        <div className="p-4">
+          <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hund</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absolvierte Trails</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {(customer.dogs || []).map((dog) => {
+                  const trails = (dog.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0);
+                  return (
+                    <tr key={dog.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dog.name || 'Unbenannt'} {dog.chipNumber ? <span className="text-xs text-gray-500 font-normal ml-2">Chip: {dog.chipNumber}</span> : null}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dog.level || 'Einsteiger'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {trails}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {(!customer.dogs || customer.dogs.length === 0) && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">Keine Hunde vorhanden</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button onClick={() => setIsAllDogsTrailsModalOpen(false)}>Schließen</Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={!!documentToDelete}
         onClose={() => setDocumentToDelete(null)}

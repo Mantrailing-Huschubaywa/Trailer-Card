@@ -19,38 +19,54 @@ import { PlusIcon, CheckCircleIcon } from './components/Icons';
 
 // Helper function to safely parse customer data from Supabase
 const parseCustomerData = (c: any): Customer => {
-  let trainingProgress: TrainingSection[] = c.trainingProgress;
-  // Supabase returns JSONB columns as strings, so we need to parse them.
-  if (typeof trainingProgress === 'string') {
-    try {
-      trainingProgress = JSON.parse(trainingProgress);
-    } catch (e) {
-      console.error("Fehler beim Parsen von trainingProgress für Kunde:", c.id, e);
-      trainingProgress = []; // Fallback auf ein leeres Array bei einem Fehler
+  // Initialize dogs array
+  let dogs: Dog[] = [];
+  try {
+    if (c.dogs && Array.isArray(c.dogs)) {
+      dogs = c.dogs;
+    } else if (typeof c.dogs === 'string') {
+      dogs = JSON.parse(c.dogs);
     }
+  } catch (e) {
+    console.error("Fehler beim Parsen von dogs für Kunde:", c.id, e);
+    dogs = [];
   }
 
-  // Korrigieren Sie Level und Avatar-Farbe basierend auf den aktuellen Trails bei jedem Laden
-  const totalTrails = trainingProgress.reduce((sum, section) => sum + section.completedHours, 0);
-  
-  let level: TrainingLevelEnum;
-  if (totalTrails <= 12) {
-    level = TrainingLevelEnum.EINSTEIGER;
-  } else if (totalTrails <= 24) {
-    level = TrainingLevelEnum.GRUNDLAGEN;
-  } else if (totalTrails <= 36) {
-    level = TrainingLevelEnum.FORTGESCHRITTENE;
-  } else if (totalTrails <= 49) {
-    level = TrainingLevelEnum.MASTERCLASS;
-  } else {
-    level = TrainingLevelEnum.EXPERT;
+  // Für Abwärtskompatibilität, falls das SQL-Skript noch nicht ausgeführt wurde,
+  // weisen wir den alten 'trainingProgress' und 'level' dem ersten Hund zu
+  if (dogs.length > 0 && !dogs[0].trainingProgress) {
+      let legacyProgress: TrainingSection[] = c.trainingProgress || [];
+      if (typeof legacyProgress === 'string') {
+          try { legacyProgress = JSON.parse(legacyProgress); } catch(e) { legacyProgress = []; }
+      }
+      dogs[0].trainingProgress = legacyProgress;
+      dogs[0].level = c.level || TrainingLevelEnum.EINSTEIGER;
   }
-  
+
+  // Recalculate level for each dog to be safe
+  dogs = dogs.map(dog => {
+    let dogProgress = dog.trainingProgress || [];
+    if (typeof dogProgress === 'string') {
+      try { dogProgress = JSON.parse(dogProgress); } catch (e) { dogProgress = []; }
+    }
+    const totalTrails = dogProgress.reduce((sum: number, section: any) => sum + section.completedHours, 0);
+    let level: TrainingLevelEnum = TrainingLevelEnum.EINSTEIGER;
+    if (totalTrails <= 12) level = TrainingLevelEnum.EINSTEIGER;
+    else if (totalTrails <= 24) level = TrainingLevelEnum.GRUNDLAGEN;
+    else if (totalTrails <= 36) level = TrainingLevelEnum.FORTGESCHRITTENE;
+    else if (totalTrails <= 49) level = TrainingLevelEnum.MASTERCLASS;
+    else level = TrainingLevelEnum.EXPERT;
+
+    return {
+      ...dog,
+      trainingProgress: dogProgress,
+      level
+    };
+  });
+
   return { 
     ...c, 
-    trainingProgress, 
-    level, // Stellen Sie sicher, dass das Level auch aktuell ist
-    avatarColor: getAvatarColorForLevel(level), // Legen Sie die korrekte Avatar-Farbe fest
+    dogs,
   };
 };
 
@@ -292,18 +308,21 @@ const App: React.FC = () => {
       id: associatedCustomerId,
       avatarInitials: initials,
       avatarColor: getAvatarColorForLevel(TrainingLevelEnum.EINSTEIGER),
-      firstName, lastName, email, phone: '', dogName: '', chipNumber: '',
-      balance: 0, totalTransactions: 0, level: TrainingLevelEnum.EINSTEIGER,
+      firstName, lastName, email, phone: '',
+      dogs: JSON.stringify([{
+        id: '1', name: '', chipNumber: '', level: TrainingLevelEnum.EINSTEIGER,
+        trainingProgress: [
+          { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
+          { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+          { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
+          { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 13, completedHours: 0, status: 'Gesperrt' },
+          { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
+        ]
+      }]),
+      balance: 0, totalTransactions: 0,
       createdBy: 'Registrierung',
       qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedTargetUrl}`,
       documents: [],
-      trainingProgress: JSON.stringify([
-        { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
-        { id: 2, name: TrainingLevelEnum.GRUNDLAGEN, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-        { id: 3, name: TrainingLevelEnum.FORTGESCHRITTENE, requiredHours: 12, completedHours: 0, status: 'Gesperrt' },
-        { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 13, completedHours: 0, status: 'Gesperrt' },
-        { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
-      ]),
     };
 
    // STEP 2: Create customer record
@@ -351,7 +370,7 @@ if (customerInsertError) {
     const { ...customerToUpdate } = updatedCustomer;
     const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
-      trainingProgress: JSON.stringify(customerToUpdate.trainingProgress)
+      dogs: JSON.stringify(customerToUpdate.dogs), // Supabase accepts stringified JSON or JSON object depending on how it's set up; assuming stringified is safe
     }).eq('id', updatedCustomer.id);
   
     if (customerUpdateError) {
