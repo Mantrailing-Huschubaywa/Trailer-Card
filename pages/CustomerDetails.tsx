@@ -923,30 +923,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             )}
           </Card>
 
-          <Card>
-            <h2 className="text-xl font-semibold text-gray-900">Level Übersicht von {selectedDog?.name || 'Hund'}</h2>
-            <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
-            <div className="space-y-4">
-              {(selectedDog?.trainingProgress || []).map((section) => (
-                <div key={section.id}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`text-sm font-medium ${section.status === 'Aktuell' ? 'text-blue-700' : section.status === 'Abgeschlossen' ? 'text-green-700' : 'text-gray-500'}`}>
-                      {section.name}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-600">
-                      {section.completedHours} / {section.requiredHours > 1000 ? '∞' : section.requiredHours}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${section.status === 'Abgeschlossen' ? 'bg-green-500' : section.status === 'Aktuell' ? 'bg-blue-500' : 'bg-gray-300'}`}
-                      style={{ width: `${Math.min(100, (section.completedHours / section.requiredHours) * 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
 
           <Card className="text-center">
             <h2 className="text-xl font-semibold text-gray-900">QR-Code</h2>
