@@ -45,6 +45,58 @@ interface SetInitialValuesModalProps {
   currentSeminars: number;
 }
 
+const EditBalanceModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  currentBalance: number;
+  onSubmit: (newBalance: number) => void;
+}> = ({ isOpen, onClose, currentBalance, onSubmit }) => {
+  const [balanceStr, setBalanceStr] = useState(currentBalance.toString());
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setBalanceStr(currentBalance.toString());
+      setError('');
+    }
+  }, [isOpen, currentBalance]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(balanceStr.replace(',', '.'));
+    if (isNaN(val)) {
+      setError('Bitte einen gültigen Betrag eingeben.');
+      return;
+    }
+    onSubmit(val);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Guthaben manuell anpassen" className="max-w-sm">
+      <form onSubmit={handleSubmit} className="p-0">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Diese Funktion ändert direkt das Guthaben des Kunden <strong>ohne</strong> eine Transaktion zu erzeugen (z.B. für Bestandsübernahmen). Nur für Administratoren.
+          </p>
+          <Input
+            id="newBalance"
+            label="Neues Guthaben (€)"
+            type="text"
+            value={balanceStr}
+            onChange={(e) => setBalanceStr(e.target.value)}
+            error={error}
+            autoFocus
+          />
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+            <Button variant="outline" type="button" onClick={onClose}>Abbrechen</Button>
+            <Button variant="primary" type="submit">Speichern</Button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs, currentSeminars }) => {
   const [dogTrails, setDogTrails] = useState<Record<string, string>>({});
   const [seminars, setSeminars] = useState(currentSeminars.toString());
@@ -343,8 +395,114 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [isAllDogsTrailsModalOpen, setIsAllDogsTrailsModalOpen] = useState(false);
+  const [isEditBalanceModalOpen, setIsEditBalanceModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
   const [documentToView, setDocumentToView] = useState<{ id: string, name: string, url: string } | null>(null);
+  const [transactionToUndo, setTransactionToUndo] = useState<Transaction | null>(null);
+
+  const handleEditBalanceSubmit = (newBalance: number) => {
+    if (!customer) return;
+    const finalUpdatedCustomer: Customer = {
+      ...customer,
+      balance: newBalance,
+    };
+    onUpdateCustomer(finalUpdatedCustomer);
+    setIsEditBalanceModalOpen(false);
+  };
+
+  const handleUndoTransaction = (transaction: Transaction) => {
+    setTransactionToUndo(transaction);
+  };
+
+  const executeUndoTransaction = () => {
+    if (!customer || !transactionToUndo) return;
+    const transaction = transactionToUndo;
+
+    let updatedBalance = customer.balance;
+    let updatedDogs = [...(customer.dogs || [])];
+
+    if (transaction.type === 'recharge') {
+      updatedBalance -= transaction.amount;
+    } else if (transaction.type === 'debit') {
+      updatedBalance += transaction.amount;
+      
+      if (transaction.description.startsWith('Mantrailing') || transaction.description.startsWith('Bestandsübernahme')) {
+        const targetDogId = transaction.dogId || (updatedDogs.length > 0 ? updatedDogs[0].id : null);
+        if (targetDogId) {
+          const dogIdx = updatedDogs.findIndex(d => d.id === targetDogId);
+          if (dogIdx !== -1) {
+            const currentTotalTrails = (updatedDogs[dogIdx].trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0);
+            
+            let trailsToDeduct = 1;
+            if (transaction.description.startsWith('Bestandsübernahme')) {
+               const match = transaction.description.match(/: (\d+) Trails/);
+               if (match) {
+                   trailsToDeduct = parseInt(match[1], 10);
+               } else {
+                   trailsToDeduct = 0;
+               }
+            }
+            
+            if (trailsToDeduct > 0) {
+              const newTotalTrails = Math.max(0, currentTotalTrails - trailsToDeduct);
+              
+              const levelsConfig = [
+                { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
+                { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
+                { name: TrainingLevelEnum.FORTGESCHRITTENE, required: 12 },
+                { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
+                { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
+              ];
+
+              let remainingTrails = newTotalTrails;
+              let newTrainingProgress: TrainingSection[] = [];
+              let hasFoundCurrent = false;
+
+              for (let i = 0; i < levelsConfig.length; i++) {
+                const levelConf = levelsConfig[i];
+                const completed = Math.min(remainingTrails, levelConf.required);
+                remainingTrails -= completed;
+                let status: 'Gesperrt' | 'Aktuell' | 'Abgeschlossen' = 'Gesperrt';
+                if (completed > 0 && !hasFoundCurrent) {
+                  if (completed < levelConf.required || levelConf.name === TrainingLevelEnum.EXPERT) {
+                    status = 'Aktuell';
+                    hasFoundCurrent = true;
+                  } else {
+                    status = 'Abgeschlossen';
+                  }
+                }
+                if (!hasFoundCurrent && i > 0 && newTrainingProgress[i - 1]?.status === 'Abgeschlossen') {
+                  status = 'Aktuell';
+                  hasFoundCurrent = true;
+                }
+                newTrainingProgress.push({
+                  id: i + 1, name: levelConf.name, requiredHours: levelConf.required,
+                  completedHours: completed, status,
+                });
+              }
+              if (!hasFoundCurrent && newTotalTrails >= 0 && newTrainingProgress.length > 0) {
+                newTrainingProgress[0].status = 'Aktuell';
+              }
+              
+              updatedDogs[dogIdx].level = getTrainingInfoByTrails(newTotalTrails).level;
+              updatedDogs[dogIdx].trainingProgress = newTrainingProgress;
+            }
+          }
+        }
+      }
+    }
+
+    const finalUpdatedCustomer: Customer = {
+      ...customer,
+      balance: updatedBalance,
+      dogs: updatedDogs,
+      totalTransactions: Math.max(0, customer.totalTransactions - 1),
+    };
+
+    onUpdateCustomer(finalUpdatedCustomer);
+    onDeleteTransactionsByIds([transaction.id]);
+    setTransactionToUndo(null);
+  };
 
   const handleDownloadDocument = async (url: string, filename: string) => {
     try {
@@ -857,9 +1015,20 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <h2 className="text-xl font-semibold text-gray-900">Übersicht</h2>
             <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-green-50 p-4 rounded-lg flex flex-col justify-center items-center text-center">
-                <p className="text-sm text-gray-600 mb-1">Aktuelles Guthaben</p>
-                <p className="text-2xl font-bold text-green-700">{customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</p>
+              <div className="bg-green-50 p-4 rounded-lg flex justify-center items-center text-center relative group">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Aktuelles Guthaben</p>
+                  <p className="text-2xl font-bold text-green-700">{customer.balance.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</p>
+                </div>
+                {currentUser.role === UserRoleEnum.ADMIN && (
+                   <button
+                     onClick={() => setIsEditBalanceModalOpen(true)}
+                     className="absolute top-2 right-2 text-green-600 hover:text-green-800 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-green-100 rounded-full hover:bg-green-200"
+                     title="Guthaben ohne Transaktion bearbeiten (Nur Admin)"
+                   >
+                     <EditIcon className="w-4 h-4" />
+                   </button>
+                )}
               </div>
               <button
                 onClick={() => setIsTransactionHistoryModalOpen(true)}
@@ -1036,6 +1205,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setIsTransactionHistoryModalOpen(false)}
         transactions={customerTransactions}
         customerName={`${customer.firstName} ${customer.lastName}`}
+        canUndo={currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER}
+        onUndoTransaction={handleUndoTransaction}
       />
       <SetInitialValuesModal
         isOpen={isSetInitialValuesModalOpen}
@@ -1043,6 +1214,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onSubmit={handleSetInitialValues}
         dogs={customer.dogs || []}
         currentSeminars={totalSeminarsAndEvents}
+      />
+      <EditBalanceModal
+        isOpen={isEditBalanceModalOpen}
+        onClose={() => setIsEditBalanceModalOpen(false)}
+        currentBalance={customer.balance}
+        onSubmit={handleEditBalanceSubmit}
       />
       <CustomAmountModal
         isOpen={isCustomAmountModalOpen}
@@ -1102,6 +1279,25 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
           <div className="mt-6 flex justify-end">
             <Button onClick={() => setIsAllDogsTrailsModalOpen(false)}>Schließen</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!transactionToUndo}
+        onClose={() => setTransactionToUndo(null)}
+        title="Transaktion löschen"
+      >
+        <div className="p-4">
+          <p className="mb-4">
+            Möchten Sie die Transaktion <strong>"{transactionToUndo?.description}"</strong> vom {transactionToUndo?.date} wirklich rückgängig machen?
+          </p>
+          <p className="mb-6 text-sm text-gray-600 bg-red-50 p-2 rounded border border-red-100">
+            <strong>Hinweis:</strong> Dies ändert das Guthaben des Kunden und zieht ggf. damit verbundene Trails wieder ab.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={() => setTransactionToUndo(null)}>Abbrechen</Button>
+            <Button variant="danger" onClick={executeUndoTransaction}>Transaktion löschen</Button>
           </div>
         </div>
       </Modal>

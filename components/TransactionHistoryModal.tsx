@@ -2,13 +2,15 @@ import React from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import { Transaction } from '../types';
-import { ArrowUpCircleIcon, ArrowDownCircleIcon } from './Icons';
+import { ArrowUpCircleIcon, ArrowDownCircleIcon, TrashIcon } from './Icons';
 
 interface TransactionHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   transactions: Transaction[];
   customerName: string;
+  canUndo?: boolean;
+  onUndoTransaction?: (transaction: Transaction) => void;
 }
 
 const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = ({
@@ -16,6 +18,8 @@ const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = ({
   onClose,
   transactions,
   customerName,
+  canUndo,
+  onUndoTransaction,
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Transaktionshistorie für ${customerName}`} className="max-w-2xl">
@@ -32,7 +36,7 @@ const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = ({
               const amountSign = isRecharge ? '+' : '-';
 
               return (
-                <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
                   <div className="flex items-center">
                     <Icon className={`h-8 w-8 mr-3 flex-shrink-0 ${iconColor}`} />
                     <div>
@@ -40,9 +44,20 @@ const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = ({
                       <p className="text-sm text-gray-500">{transaction.date} &bull; {transaction.employee}</p>
                     </div>
                   </div>
-                  <p className={`font-semibold text-lg whitespace-nowrap ${amountColor}`}>
-                    {amountSign}{Math.abs(transaction.amount).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                  </p>
+                  <div className="flex items-center space-x-4">
+                    <p className={`font-semibold text-lg whitespace-nowrap ${amountColor}`}>
+                      {amountSign}{Math.abs(transaction.amount).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                    </p>
+                    {canUndo && (
+                        <button
+                          onClick={() => onUndoTransaction?.(transaction)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
+                          title="Transaktion rückgängig machen"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                  </div>
                 </div>
               );
             })
