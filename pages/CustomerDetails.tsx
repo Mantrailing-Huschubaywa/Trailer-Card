@@ -688,13 +688,18 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTransactionData(null);
   };
   
-  const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customSeminarDebit', selectedDog?: Dog) => {
+  const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customDebit' | 'customSeminarDebit', selectedDog?: Dog) => {
     setShowTransactionTypeModal(false);
     if (!customer) return;
 
     switch (type) {
       case 'customRecharge':
         setCustomTransactionType('Aufladung');
+        setCustomTransactionDescription('');
+        setIsCustomAmountModalOpen(true);
+        break;
+      case 'customDebit':
+        setCustomTransactionType('Abbuchung');
         setCustomTransactionDescription('');
         setIsCustomAmountModalOpen(true);
         break;

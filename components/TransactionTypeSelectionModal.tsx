@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
-import { ArrowUpCircleIcon, ArrowDownCircleIcon, PawPrintIcon } from './Icons';
+import { ArrowUpCircleIcon, ArrowDownCircleIcon, PawPrintIcon, ClipboardIcon } from './Icons';
 import { Dog } from '../types';
 
 interface TransactionTypeSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectType: (type: 'Mantrailing' | 'customRecharge', selectedDog?: Dog) => void;
+  onSelectType: (type: 'Mantrailing' | 'customRecharge' | 'customDebit', selectedDog?: Dog) => void;
   customerBalance: number;
   dogs?: Dog[];
 }
@@ -21,6 +21,7 @@ const TransactionTypeSelectionModal: React.FC<TransactionTypeSelectionModalProps
 }) => {
   const TRAIL_COST = 18;
   const isTrailDisabled = customerBalance < TRAIL_COST;
+  const isDebitDisabled = customerBalance <= 0;
   
   const [showDogSelection, setShowDogSelection] = useState(false);
 
@@ -29,7 +30,7 @@ const TransactionTypeSelectionModal: React.FC<TransactionTypeSelectionModalProps
     if (!isOpen) setShowDogSelection(false);
   }, [isOpen]);
 
-  const handleSelect = (type: 'Mantrailing' | 'customRecharge', dog?: Dog) => {
+  const handleSelect = (type: 'Mantrailing' | 'customRecharge' | 'customDebit', dog?: Dog) => {
     if (type === 'Mantrailing' && dogs.length > 1 && !dog) {
       setShowDogSelection(true);
       return;
@@ -86,13 +87,27 @@ const TransactionTypeSelectionModal: React.FC<TransactionTypeSelectionModalProps
               >
                 Abbuchung Mantrailing (18,00 €)
               </Button>
+
+              <Button
+                variant="danger"
+                icon={ClipboardIcon}
+                onClick={() => handleSelect('customDebit')}
+                disabled={isDebitDisabled}
+                className="w-full"
+              >
+                Abbuchung (Individueller Betrag)
+              </Button>
             </div>
 
-            {isTrailDisabled && (
+            {isDebitDisabled ? (
+              <p className="text-sm text-red-600 mt-2">
+                Kein Guthaben für Abbuchungen vorhanden.
+              </p>
+            ) : isTrailDisabled ? (
               <p className="text-sm text-red-600 mt-2">
                 Guthaben reicht für Mantrailing-Abbuchung nicht aus.
               </p>
-            )}
+            ) : null}
           </>
         )}
       </div>

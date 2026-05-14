@@ -132,7 +132,9 @@ const BankDetailsModal: React.FC<BankDetailsModalProps> = ({ isOpen, onClose, cu
                 </div>
                 <div className="ml-3">
                   <p className="text-base font-bold text-amber-800">Wichtiger Hinweis!</p>
-                  <p className="mt-1 text-base text-amber-700">Vergiss nicht, deine <strong>Kundennummer</strong> in das Mitteilungsfeld bei PayPal einzutragen.</p>
+                  <p className="mt-1 text-base text-amber-700">
+                    Vergiss nicht, deine <strong>Kundennummer</strong> in das Mitteilungsfeld bei PayPal einzutragen. Bitte wähle bei der Zahlung zudem immer die Option <strong>„Für Freunde und Familie“</strong> aus.
+                  </p>
                 </div>
               </div>
             </div>
