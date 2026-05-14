@@ -95,7 +95,7 @@ const CustomAmountModal: React.FC<CustomAmountModalProps> = ({ isOpen, onClose, 
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="z.B. Seminar, Event, Korrektur..."
+            placeholder="z.B. Korrektur..."
             error={errors.description}
           />
         </div>

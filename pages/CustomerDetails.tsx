@@ -27,7 +27,6 @@ import {
   TrailBadge50Icon,
   TrailBadge100Icon,
   TrailBadge500Icon,
-  SeminarEventPatchIcon,
   BankIcon,
   HeartIcon,
 } from '../components/Icons';
@@ -42,7 +41,6 @@ interface SetInitialValuesModalProps {
   onClose: () => void;
   onSubmit: (dogTrails: Record<string, number>, totalSeminars: number) => void;
   dogs: Dog[];
-  currentSeminars: number;
 }
 
 const EditBalanceModal: React.FC<{
@@ -97,11 +95,9 @@ const EditBalanceModal: React.FC<{
   );
 };
 
-const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs, currentSeminars }) => {
+const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs }) => {
   const [dogTrails, setDogTrails] = useState<Record<string, string>>({});
-  const [seminars, setSeminars] = useState(currentSeminars.toString());
   const [dogTrailsErrors, setDogTrailsErrors] = useState<Record<string, string>>({});
-  const [seminarsError, setSeminarsError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -111,16 +107,13 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
         initialTrails[d.id] = td.toString();
       });
       setDogTrails(initialTrails);
-      setSeminars(currentSeminars.toString());
       setDogTrailsErrors({});
-      setSeminarsError('');
     }
-  }, [isOpen, dogs, currentSeminars]);
+  }, [isOpen, dogs]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let hasError = false;
-    const numSeminars = parseInt(seminars, 10);
     const parsedDogTrails: Record<string, number> = {};
     const newDogErrors: Record<string, string> = {};
 
@@ -136,15 +129,8 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
 
     setDogTrailsErrors(newDogErrors);
 
-    if (isNaN(numSeminars) || numSeminars < 0) {
-      setSeminarsError('Bitte eine gültige, positive Zahl eingeben.');
-      hasError = true;
-    } else {
-      setSeminarsError('');
-    }
-
     if (!hasError) {
-      onSubmit(parsedDogTrails, numSeminars);
+      onSubmit(parsedDogTrails, 0); // Keep interface signature for now or refactor
     }
   };
 
@@ -168,19 +154,6 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
               error={dogTrailsErrors[dog.id]}
             />
           ))}
-
-          <Input
-            id="totalSeminars"
-            label="Gesamtzahl der Seminare & Events"
-            type="number"
-            value={seminars}
-            onChange={(e) => setSeminars(e.target.value)}
-            min="0"
-            error={seminarsError}
-          />
-           <p className="text-xs text-gray-500 -mt-2 ml-1">
-            Hinweis: Diese Zahl passt die Anzahl der übernommenen Seminare an. Regulär gebuchte Seminare bleiben unberührt.
-          </p>
         </div>
         <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">
           <Button variant="outline" type="button" onClick={onClose}>
@@ -318,46 +291,7 @@ const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
   );
 };
 
-// NEUE KOMPONENTE: Anzeige der Seminar/Event-Abzeichen
-const SeminarEventPatches: React.FC<{ totalSeminars: number }> = ({ totalSeminars }) => {
-  if (totalSeminars === 0) {
-    return (
-      <div className="flex justify-center items-center py-4 min-h-[140px]">
-        <p className="text-gray-500 italic text-sm text-center">Keine Seminare/Events absolviert</p>
-      </div>
-    );
-  }
 
-  const rows = [];
-  const rowSize = 4; // Maximum of 4 patches per row
-
-  for (let i = 0; i < totalSeminars; i += rowSize) {
-    const patchGroup = [];
-    // Create patches for the current row
-    for (let j = i; j < i + rowSize && j < totalSeminars; j++) {
-      patchGroup.push(
-        <div key={`seminar-${j}`} className="relative first:ml-0 -ml-12">
-          <SeminarEventPatchIcon
-            className="h-32 w-32 [filter:drop-shadow(0_2px_2px_rgba(0,0,0,0.25))]"
-          />
-        </div>
-      );
-    }
-
-    // Add the completed row to the rows array
-    rows.push(
-      <div key={`row-${i}`} className="flex justify-center items-center first:mt-0 mt-[-50px]">
-         {patchGroup}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center py-4 min-h-[140px]">
-      {rows}
-    </div>
-  );
-};
 
 
 interface CustomerDetailsProps {
@@ -764,11 +698,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         setCustomTransactionDescription('');
         setIsCustomAmountModalOpen(true);
         break;
-      case 'customSeminarDebit':
-        setCustomTransactionType('Abbuchung');
-        setCustomTransactionDescription('Seminar/Event');
-        setIsCustomAmountModalOpen(true);
-        break;
       case 'Mantrailing': {
         const desc = selectedDog ? `Mantrailing (${selectedDog.name})` : 'Mantrailing';
         handleOpenConfirmationModal(18, 'Abbuchung', desc, selectedDog?.id);
@@ -793,13 +722,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const handleSetInitialValues = (dogTrails: Record<string, number>, newTotalSeminars: number) => {
     if (!customer) return;
   
-    // --- SEMINAR VALIDATION ---
-    const regularWorkshops = customerTransactions.filter(t => t.description === 'Workshop' || t.description === 'Seminar/Event');
-    if (newTotalSeminars < regularWorkshops.length) {
-      alert(`Korrektur nicht möglich: Die eingegebene Gesamtzahl (${newTotalSeminars}) ist geringer als die Anzahl der bereits regulär gebuchten Seminare (${regularWorkshops.length}).`);
-      return; // Abort without closing modal
-    }
-
     const levelsConfig = [
       { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
       { name: TrainingLevelEnum.GRUNDLAGEN, required: 12 },
@@ -807,29 +729,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       { name: TrainingLevelEnum.MASTERCLASS, required: 13 },
       { name: TrainingLevelEnum.EXPERT, required: Number.MAX_SAFE_INTEGER },
     ];
-  
-    // --- SEMINAR TRANSACTION ADJUSTMENT ---
-    const bestandsuebernahmeWorkshops = customerTransactions.filter(t => t.description === 'Workshop (Bestandsübernahme)');
-    const targetBestandWorkshops = newTotalSeminars - regularWorkshops.length;
-    const diff = targetBestandWorkshops - bestandsuebernahmeWorkshops.length;
-  
-    if (diff < 0) {
-      const idsToDelete = bestandsuebernahmeWorkshops.slice(0, Math.abs(diff)).map(t => t.id);
-      onDeleteTransactionsByIds(idsToDelete);
-    } else if (diff > 0) {
-      for (let i = 0; i < diff; i++) {
-        const newSeminarTransaction: Omit<Transaction, 'created_at'> = {
-          id: `trx-${transactions.length + 2 + i}-${Date.now()}`,
-          customerId: customer.id,
-          type: 'debit',
-          description: 'Workshop (Bestandsübernahme)',
-          amount: 0,
-          date: REFERENCE_DATE.toLocaleDateString('de-DE'),
-          employee: `${currentUser.firstName} ${currentUser.lastName}`,
-        };
-        onAddTransaction(newSeminarTransaction);
-      }
-    }
 
     let updatedDogs = [...(customer.dogs || [])];
     let trailTransactionsToAdd = 0;
@@ -914,9 +813,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
   const totalTrails = (selectedDog?.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0);
   const allDogsTotalTrails = customer.dogs ? customer.dogs.reduce((sum, dog) => sum + (dog.trainingProgress || []).reduce((s, section) => s + section.completedHours, 0), 0) : 0;
-  const totalSeminarsAndEvents = customerTransactions.filter(
-    t => t.description === 'Workshop' || t.description === 'Workshop (Bestandsübernahme)' || t.description === 'Seminar/Event'
-  ).length;
   const trainingInfo = getTrainingInfoByTrails(totalTrails);
 
   const canPerformActions = currentUser.role === UserRoleEnum.ADMIN || currentUser.role === UserRoleEnum.MITARBEITER;
@@ -997,7 +893,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           </div>
                           <div className="text-xs text-gray-500 flex flex-col gap-1">
                              <span>Chip: {dog.chipNumber || 'Keine Angabe'}</span>
-                             <span>Level: {dog.level || 'Einsteiger'}</span>
                              <span className="text-blue-600 font-medium mt-1">Trails: {(dog.trainingProgress || []).reduce((sum, section) => sum + section.completedHours, 0)}</span>
                           </div>
                         </div>
@@ -1057,15 +952,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <TrailBadges totalTrails={trainingInfo.totalTrails} />
                   <p className="text-5xl font-bold text-slate-800">{trainingInfo.totalTrails}</p>
                   <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Trails</p>
-              </div>
-            </Card>
-            <Card className="flex flex-col">
-              <h2 className="text-xl font-semibold text-gray-900">Seminare und Events</h2>
-              <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
-              <div className="bg-slate-100 p-6 flex flex-col items-center justify-center text-center flex-grow rounded-lg">
-                  <SeminarEventPatches totalSeminars={totalSeminarsAndEvents} />
-                  <p className="text-5xl font-bold text-slate-800">{totalSeminarsAndEvents}</p>
-                  <p className="text-lg font-medium mt-1 text-slate-600">Absolvierte Seminare und Events</p>
               </div>
             </Card>
           </div>
@@ -1213,7 +1099,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setIsSetInitialValuesModalOpen(false)}
         onSubmit={handleSetInitialValues}
         dogs={customer.dogs || []}
-        currentSeminars={totalSeminarsAndEvents}
       />
       <EditBalanceModal
         isOpen={isEditBalanceModalOpen}
