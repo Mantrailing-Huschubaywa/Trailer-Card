@@ -569,7 +569,20 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   // Filter and sort transactions for the current customer
   const customerTransactions = transactions
     .filter(t => t.customerId === id)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      // First try created_at which might be an ISO string
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : NaN;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : NaN;
+      
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateB - dateA;
+      }
+      
+      // Fallback to parseDateString for the 'date' field
+      const parsedA = parseDateString(a.date)?.getTime() || 0;
+      const parsedB = parseDateString(b.date)?.getTime() || 0;
+      return parsedB - parsedA;
+    });
 
   if (!id) {
     return (

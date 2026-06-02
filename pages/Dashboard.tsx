@@ -150,7 +150,18 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, transactions, currentU
     .slice(0, 5);
 
   const latestTransactions = [...transactions]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : NaN;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : NaN;
+      
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateB - dateA;
+      }
+      
+      const parsedA = parseDateString(a.date)?.getTime() || 0;
+      const parsedB = parseDateString(b.date)?.getTime() || 0;
+      return parsedB - parsedA;
+    })
     .slice(0, 5);
     
   const welcomeMessage = currentUser ? `Hallo, ${currentUser.firstName}!` : 'Willkommen!';

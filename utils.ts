@@ -9,6 +9,14 @@ import { TrainingLevelEnum } from './types';
  * @returns A Date object, or null if parsing fails.
  */
 export const parseDateString = (dateString: string): Date | null => {
+  if (!dateString) return null;
+
+  // Check if ISO-8601 or YYYY-MM-DD format (contains '-')
+  if (dateString.includes('-')) {
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   const parts = dateString.split('.');
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10);

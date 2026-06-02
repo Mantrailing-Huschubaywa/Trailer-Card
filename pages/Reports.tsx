@@ -23,33 +23,51 @@ interface ReportsProps {
 }
 
 // Helper function to generate dynamic report periods
-const generateReportPeriods = (reportType: string, referenceDate: Date) => {
-  const periods = [];
-  const currentMonthName = referenceDate.toLocaleString('de-DE', { month: 'long' });
-  const currentYear = referenceDate.getFullYear();
-
-  if (reportType === 'Monatlich') {
-    // Current month
-    periods.push({ value: `${currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)} ${currentYear}`, label: `${currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)} ${currentYear}` });
-
-    // Previous month
-    const prevMonthDate = new Date(referenceDate);
-    prevMonthDate.setMonth(referenceDate.getMonth() - 1);
-    const prevMonthName = prevMonthDate.toLocaleString('de-DE', { month: 'long' });
-    const prevMonthYear = prevMonthDate.getFullYear();
-    periods.push({ value: `${prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1)} ${prevMonthYear}`, label: `${prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1)} ${prevMonthYear}` });
-    
-  } else if (reportType === 'Jährlich') {
-    // Current year
-    periods.push({ value: String(currentYear), label: String(currentYear) });
-
-    // Previous year
-    periods.push({ value: String(currentYear - 1), label: String(currentYear - 1) });
-  } else if (reportType === 'Benutzerdefiniert') {
-    // For now, "Gesamt" represents a custom, all-encompassing period
-    periods.push({ value: 'Gesamt', label: 'Gesamt' });
+const generateReportPeriods = (reportType: string, referenceDate: Date, transactions?: Transaction[]) => {
+  const periodsSet = new Set<string>();
+  
+  if (reportType === 'Benutzerdefiniert') {
+    return [{ value: 'Gesamt', label: 'Gesamt' }];
   }
-  return periods;
+
+  // Always include current period
+  if (reportType === 'Monatlich') {
+    const currentMonthName = referenceDate.toLocaleString('de-DE', { month: 'long' });
+    const currentYear = referenceDate.getFullYear();
+    periodsSet.add(`${currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)} ${currentYear}`);
+  } else if (reportType === 'Jährlich') {
+    periodsSet.add(String(referenceDate.getFullYear()));
+  }
+
+  // Extract from transactions
+  if (transactions) {
+    transactions.forEach(t => {
+      const d = parseDateString(t.date);
+      if (d && !isNaN(d.getTime())) {
+        if (reportType === 'Monatlich') {
+          const monthName = d.toLocaleString('de-DE', { month: 'long' });
+          const year = d.getFullYear();
+          periodsSet.add(`${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`);
+        } else if (reportType === 'Jährlich') {
+          periodsSet.add(String(d.getFullYear()));
+        }
+      }
+    });
+  }
+
+  const periodsArr = Array.from(periodsSet).sort((a, b) => {
+    if (reportType === 'Jährlich') {
+      return parseInt(b) - parseInt(a);
+    } else {
+      const [monthA, yearA] = a.split(' ');
+      const [monthB, yearB] = b.split(' ');
+      if (yearA !== yearB) return parseInt(yearB) - parseInt(yearA);
+      const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+      return months.indexOf(monthB) - months.indexOf(monthA);
+    }
+  });
+
+  return periodsArr.map(p => ({ value: p, label: p }));
 };
 
 
@@ -60,7 +78,7 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ title: string; items: any[]; columns: Column<any>[]; emptyStateMessage: string; } | null>(null);
 
-  const initialPeriods = generateReportPeriods('Monatlich', REFERENCE_DATE);
+  const initialPeriods = generateReportPeriods('Monatlich', REFERENCE_DATE, transactions);
   const [timePeriod, setTimePeriod] = useState(initialPeriods.length > 0 ? initialPeriods[0].value : 'Gesamt');
   const [availableTimePeriods, setAvailableTimePeriods] = useState(initialPeriods);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -69,14 +87,20 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
 
   // Effect to update availableTimePeriods and reset timePeriod when reportType changes
   useEffect(() => {
-    const newPeriods = generateReportPeriods(reportType, REFERENCE_DATE);
+    const newPeriods = generateReportPeriods(reportType, REFERENCE_DATE, transactions);
     setAvailableTimePeriods(newPeriods);
     if (newPeriods.length > 0) {
-      setTimePeriod(newPeriods[0].value); // Set to the first option by default
+      // Keep the current timePeriod if it's still available in the new periods
+      setTimePeriod(prev => {
+        if (!newPeriods.find(p => p.value === prev)) {
+          return newPeriods[0].value;
+        }
+        return prev;
+      });
     } else {
       setTimePeriod('Gesamt'); // Fallback
     }
-  }, [reportType]);
+  }, [reportType, transactions]);
 
   // Dynamically generate employee options from the users prop
   const employeeOptions = useMemo(() => {
@@ -144,7 +168,18 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
 
       return matchesPeriod && matchesEmployee && matchesTransactionType;
     })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : NaN;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : NaN;
+      
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateB - dateA;
+      }
+      
+      const parsedA = parseDateString(a.date)?.getTime() || 0;
+      const parsedB = parseDateString(b.date)?.getTime() || 0;
+      return parsedB - parsedA;
+    });
 
   // Modal data and stats
   const rechargeTransactions = useMemo(() => filteredTransactions.filter(t => t.type === 'recharge'), [filteredTransactions]);
