@@ -301,6 +301,7 @@ interface CustomerDetailsProps {
   onUpdateCustomer: (updatedCustomer: Customer) => void | Promise<void>;
   onAddTransaction: (newTransaction: Omit<Transaction, 'created_at'>) => void | Promise<void>;
   onProcessTransaction: (updatedCustomer: Customer, newTransaction: Omit<Transaction, 'created_at'>) => Promise<boolean>;
+  onProcessTransactionsBatch: (updatedCustomer: Customer, newTransactions: Omit<Transaction, 'created_at'>[]) => Promise<boolean>;
   onDeleteTransactionsByIds: (transactionIds: string[]) => void | Promise<void>;
   currentUser: User;
 }
@@ -311,6 +312,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   onUpdateCustomer,
   onAddTransaction,
   onProcessTransaction,
+  onProcessTransactionsBatch,
   onDeleteTransactionsByIds,
   currentUser,
 }) => {
@@ -856,13 +858,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       totalTransactions: newTotalTransactions,
     };
 
-    // Erst den Kunden aktualisieren (Trainingsfortschritt, Zähler) ...
-    await onUpdateCustomer(finalUpdatedCustomer);
-    // ... und erst danach die Transaktionen buchen, nacheinander und
-    // abgewartet, statt wie zuvor "fire-and-forget" mitten in der Schleife.
-    for (const trailTransaction of trailTransactionsToInsert) {
-      await onAddTransaction(trailTransaction);
-    }
+    // Kunden-Update UND alle Trail-Buchungen (pro Hund eine) laufen jetzt als
+    // EINE atomare Datenbankoperation - genau wie bei einer normalen
+    // Aufladung/Abbuchung. Damit bleiben die Trails jedes einzelnen Hundes
+    // garantiert korrekt und unabhängig von den anderen Hunden gezählt, auch
+    // wenn mitten im Vorgang z.B. die Internetverbindung abbricht.
+    await onProcessTransactionsBatch(finalUpdatedCustomer, trailTransactionsToInsert);
 
     setIsSubmittingTransaction(false);
     setIsSetInitialValuesModalOpen(false);

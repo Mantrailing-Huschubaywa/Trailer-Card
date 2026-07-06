@@ -476,6 +476,50 @@ if (customerInsertError) {
     setTransactions(prev => [...prev, { ...newTransaction, created_at: new Date().toISOString() }]);
     return true;
   };
+
+  // Wie handleProcessTransaction, aber für mehrere Buchungen auf einmal -
+  // z.B. wenn bei einem Kunden mit mehreren Hunden für jeden Hund einzeln
+  // ein Trail-Startwert gesetzt wird. Kunden-Update UND alle Buchungen
+  // laufen als eine einzige atomare Datenbankoperation, damit die Trails
+  // pro Hund garantiert korrekt und unabhängig voneinander gezählt werden.
+  const handleProcessTransactionsBatch = async (
+    updatedCustomer: Customer,
+    newTransactions: Omit<Transaction, 'created_at'>[]
+  ): Promise<boolean> => {
+    if (!supabase) return false;
+    if (newTransactions.length === 0) {
+      // Nichts zu buchen, aber der Kunde soll trotzdem aktualisiert werden.
+      return handleUpdateCustomer(updatedCustomer).then(() => true);
+    }
+
+    const { error } = await supabase.rpc('process_transactions_batch', {
+      p_customer_id: updatedCustomer.id,
+      p_new_balance: updatedCustomer.balance,
+      p_new_total_transactions: updatedCustomer.totalTransactions,
+      p_dogs: updatedCustomer.dogs,
+      p_transactions: newTransactions.map(t => ({
+        id: t.id,
+        dogId: t.dogId ?? null,
+        type: t.type,
+        description: t.description,
+        amount: t.amount,
+        date: t.date,
+        employee: t.employee,
+      })),
+    });
+
+    if (error) {
+      alert(`Fehler beim Speichern: ${error.message}\n\nEs wurde NICHTS gespeichert. Bitte erneut versuchen.`);
+      return false;
+    }
+
+    setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
+    setTransactions(prev => [
+      ...prev,
+      ...newTransactions.map(t => ({ ...t, created_at: new Date().toISOString() })),
+    ]);
+    return true;
+  };
   
   const handleDeleteTransactionsByIds = async (transactionIds: string[]) => {
     if (!supabase || transactionIds.length === 0) return;
@@ -540,7 +584,7 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} users={users} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
@@ -549,12 +593,12 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId ? (
                 <>
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
                 </>
               ) : (
