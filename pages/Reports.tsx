@@ -7,7 +7,7 @@ import Select from '../components/Select';
 import Avatar from '../components/Avatar';
 import { MOCK_REPORT_TYPES, MOCK_TRANSACTION_FILTERS, REFERENCE_DATE } from '../constants';
 import { ArrowUpCircleIcon, ArrowDownCircleIcon, DollarSignIcon, ClipboardIcon, UsersIcon } from '../components/Icons';
-import { parseDateString, isSameMonth } from '../utils';
+import { parseDateString, isSameMonth, formatDateDE } from '../utils';
 import { Customer, Transaction, User, UserRoleEnum } from '../types';
 import DashboardInfoModal from '../components/DashboardInfoModal';
 import { Column } from '../components/Table';
@@ -349,7 +349,7 @@ const Reports: React.FC<ReportsProps> = ({ customers, transactions, users }) => 
       yPos += 7;
       doc.text(`Transaktionstyp: ${transactionFilter}`, 20, yPos); // Add transaction filter to PDF
       yPos += 7;
-      doc.text(`Erstellt am: ${REFERENCE_DATE.toLocaleDateString('de-DE')}`, 20, yPos);
+      doc.text(`Erstellt am: ${formatDateDE(REFERENCE_DATE)}`, 20, yPos);
       yPos += 15;
 
       // Summary Stats

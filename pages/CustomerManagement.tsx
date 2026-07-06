@@ -23,7 +23,7 @@ import {
   UserRoleEnum,
 } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { parseDateString, isSameMonth } from '../utils';
+import { parseDateString, isSameMonth, formatDateDE } from '../utils';
 import DashboardInfoModal from '../components/DashboardInfoModal';
 
 interface CustomerManagementProps {
@@ -269,7 +269,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
       key: 'created_at',
       header: 'Erstellt',
       className: 'hidden lg:table-cell',
-      render: (item: CustomerTableData) => new Date(item.created_at).toLocaleDateString('de-DE'),
+      render: (item: CustomerTableData) => formatDateDE(new Date(item.created_at)),
     },
     {
       key: 'id',
@@ -391,7 +391,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({
                       </div>
 
                       <p className="text-xs text-gray-500 mt-2">
-                        Erstellt am {new Date(c.created_at).toLocaleDateString('de-DE')}
+                        Erstellt am {formatDateDE(new Date(c.created_at))}
                       </p>
                     </div>
                   </button>

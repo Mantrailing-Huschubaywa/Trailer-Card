@@ -13,7 +13,7 @@ import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum, TrainingS
 import { REFERENCE_DATE } from './constants';
 import { USE_MOCK_DATA } from './config';
 import { getSupabaseClient } from './supabaseClient';
-import { getAvatarColorForLevel } from './utils';
+import { getAvatarColorForLevel, formatDateDE } from './utils';
 import Button from './components/Button';
 import { PlusIcon, CheckCircleIcon } from './components/Icons';
 
@@ -214,7 +214,7 @@ const App: React.FC = () => {
         associatedCustomerId: profileData.associatedCustomerId,
         avatarInitials: `${(profileData.firstName || '?').charAt(0)}${(profileData.lastName || '?').charAt(0)}`.toUpperCase(),
         avatarColor: 'bg-orange-500',
-        created_at: new Date(profileData.created_at || Date.now()).toLocaleDateString('de-DE'),
+        created_at: formatDateDE(new Date(profileData.created_at || Date.now())),
       };
       setCurrentUser(loggedInUser);
 
@@ -237,7 +237,7 @@ const App: React.FC = () => {
             associatedCustomerId: p.associatedCustomerId,
             avatarInitials: `${(p.firstName || '?').charAt(0)}${(p.lastName || '?').charAt(0)}`.toUpperCase(),
             avatarColor: 'bg-orange-500',
-            created_at: new Date(p.created_at || Date.now()).toLocaleDateString('de-DE'),
+            created_at: formatDateDE(new Date(p.created_at || Date.now())),
           })) || []);
         }
       } else if (loggedInUser.associatedCustomerId) {
@@ -438,6 +438,44 @@ if (customerInsertError) {
         setTransactions(prev => [...prev, completeTransaction]);
     }
   };
+
+  // Bucht eine Transaktion UND aktualisiert den zugehörigen Kunden (Saldo, Trainingsfortschritt, ...)
+  // als eine einzige atomare Datenbankoperation (über die Postgres-Funktion "process_transaction").
+  // So kann es nicht mehr passieren, dass eine Transaktion gespeichert wird, aber der Saldo nicht
+  // (oder umgekehrt) - z.B. weil die Internetverbindung mitten im Vorgang abbricht.
+  // Gibt true bei Erfolg zurück, false bei einem Fehler (der Aufrufer soll dann NICHT den
+  // Bestätigungs-Dialog schließen bzw. den Nutzer informieren, erneut zu versuchen).
+  const handleProcessTransaction = async (
+    updatedCustomer: Customer,
+    newTransaction: Omit<Transaction, 'created_at'>
+  ): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase.rpc('process_transaction', {
+      p_customer_id: updatedCustomer.id,
+      p_new_balance: updatedCustomer.balance,
+      p_new_total_transactions: updatedCustomer.totalTransactions,
+      p_dogs: updatedCustomer.dogs,
+      p_transaction_id: newTransaction.id,
+      p_dog_id: newTransaction.dogId ?? null,
+      p_type: newTransaction.type,
+      p_description: newTransaction.description,
+      p_amount: newTransaction.amount,
+      p_date: newTransaction.date,
+      p_employee: newTransaction.employee,
+    });
+
+    if (error) {
+      alert(`Fehler beim Buchen der Transaktion: ${error.message}\n\nEs wurde NICHTS gespeichert. Bitte erneut versuchen.`);
+      return false;
+    }
+
+    // Nur bei Erfolg den lokalen Zustand nachziehen - so bleiben Saldo und
+    // Transaktionshistorie in der App immer synchron mit der Datenbank.
+    setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
+    setTransactions(prev => [...prev, { ...newTransaction, created_at: new Date().toISOString() }]);
+    return true;
+  };
   
   const handleDeleteTransactionsByIds = async (transactionIds: string[]) => {
     if (!supabase || transactionIds.length === 0) return;
@@ -502,7 +540,7 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} users={users} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
@@ -511,12 +549,12 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId ? (
                 <>
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
                 </>
               ) : (

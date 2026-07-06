@@ -8,6 +8,7 @@ import UserDeleteConfirmationModal from '../components/UserDeleteConfirmationMod
 import { EditIcon, TrashIcon, UserPlusIcon } from '../components/Icons';
 import { User, UserRoleEnum } from '../types';
 import { REFERENCE_DATE } from '../constants';
+import { formatDateDE } from '../utils';
 
 interface UserManagementProps {
   users: User[];
@@ -61,7 +62,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
         email: userData.email,
         role: userData.role, // This will be hardcoded to Mitarbeiter by the modal
         password: userData.password,
-        created_at: REFERENCE_DATE.toLocaleDateString('de-DE'),
+        created_at: formatDateDE(REFERENCE_DATE),
       };
       
       onAddUser(newUser);
