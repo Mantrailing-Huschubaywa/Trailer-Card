@@ -309,7 +309,10 @@ const App: React.FC = () => {
       avatarInitials: initials,
       avatarColor: getAvatarColorForLevel(TrainingLevelEnum.EINSTEIGER),
       firstName, lastName, email, phone: '',
-      dogs: JSON.stringify([{
+      // Wichtig: kein JSON.stringify() - "dogs" ist eine jsonb-Spalte, Supabase
+      // wandelt das Array automatisch korrekt um (siehe Erklärung bei
+      // handleUpdateCustomer weiter unten in dieser Datei).
+      dogs: [{
         id: '1', name: '', chipNumber: '', level: TrainingLevelEnum.EINSTEIGER,
         trainingProgress: [
           { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
@@ -318,7 +321,7 @@ const App: React.FC = () => {
           { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 13, completedHours: 0, status: 'Gesperrt' },
           { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
         ]
-      }]),
+      }],
       balance: 0, totalTransactions: 0,
       createdBy: 'Registrierung',
       qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedTargetUrl}`,
@@ -368,9 +371,16 @@ if (customerInsertError) {
     if (!supabase) return;
   
     const { ...customerToUpdate } = updatedCustomer;
+    // Wichtig: KEIN JSON.stringify(...) mehr auf "dogs" anwenden. Die Spalte
+    // "dogs" in der Datenbank ist vom Typ jsonb - Supabase wandelt ein
+    // normales JS-Array/Objekt bereits automatisch korrekt um. Ein
+    // zusätzliches JSON.stringify() hat den Inhalt bisher DOPPELT als Text
+    // verschachtelt gespeichert (ein Text-String, der selbst wieder Text
+    // enthielt), statt als normale Datenstruktur. Das hat u.a. Datenbank-
+    // Abfragen und die Auswertung der Hunde-Daten erschwert.
     const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
-      dogs: JSON.stringify(customerToUpdate.dogs), // Supabase accepts stringified JSON or JSON object depending on how it's set up; assuming stringified is safe
+      dogs: customerToUpdate.dogs,
     }).eq('id', updatedCustomer.id);
   
     if (customerUpdateError) {

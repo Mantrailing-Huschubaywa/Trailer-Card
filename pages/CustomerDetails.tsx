@@ -1205,7 +1205,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hund</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absolvierte Trails</th>
                 </tr>
               </thead>
@@ -1215,7 +1214,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   return (
                     <tr key={dog.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dog.name || 'Unbenannt'} {dog.chipNumber ? <span className="text-xs text-gray-500 font-normal ml-2">Chip: {dog.chipNumber}</span> : null}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dog.level || 'Einsteiger'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           {trails}
@@ -1226,7 +1224,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 })}
                 {(!customer.dogs || customer.dogs.length === 0) && (
                   <tr>
-                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">Keine Hunde vorhanden</td>
+                    <td colSpan={2} className="px-6 py-4 text-center text-sm text-gray-500">Keine Hunde vorhanden</td>
                   </tr>
                 )}
               </tbody>
