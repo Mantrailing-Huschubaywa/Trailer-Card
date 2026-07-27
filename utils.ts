@@ -60,26 +60,6 @@ export const isSameMonth = (date1: Date, date2: Date): boolean => {
 };
 
 /**
- * Formats a Date object as a German date string with a fixed, zero-padded
- * DD.MM.YYYY layout (e.g. '05.07.2026' instead of '5.7.2026').
- *
- * This is used everywhere a transaction/customer date is created so that
- * every stored/displayed date has exactly the same format, regardless of
- * which day of the month it is. Using this instead of a bare
- * `toLocaleDateString('de-DE')` call avoids the inconsistent-looking dates
- * (some with leading zeros, some without) that were showing up across the app.
- * @param date The date to format.
- * @returns A zero-padded DD.MM.YYYY string.
- */
-export const formatDateDE = (date: Date): string => {
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
-
-/**
  * Helper function to get color classes based on training level for the avatar circle.
  * @param level The training level of the customer.
  * @returns A Tailwind CSS background color class string.

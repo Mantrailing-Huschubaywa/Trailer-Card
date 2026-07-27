@@ -13,7 +13,7 @@ import { Customer, Transaction, TrainingLevelEnum, User, UserRoleEnum, TrainingS
 import { REFERENCE_DATE } from './constants';
 import { USE_MOCK_DATA } from './config';
 import { getSupabaseClient } from './supabaseClient';
-import { getAvatarColorForLevel, formatDateDE } from './utils';
+import { getAvatarColorForLevel } from './utils';
 import Button from './components/Button';
 import { PlusIcon, CheckCircleIcon } from './components/Icons';
 
@@ -214,7 +214,7 @@ const App: React.FC = () => {
         associatedCustomerId: profileData.associatedCustomerId,
         avatarInitials: `${(profileData.firstName || '?').charAt(0)}${(profileData.lastName || '?').charAt(0)}`.toUpperCase(),
         avatarColor: 'bg-orange-500',
-        created_at: formatDateDE(new Date(profileData.created_at || Date.now())),
+        created_at: new Date(profileData.created_at || Date.now()).toLocaleDateString('de-DE'),
       };
       setCurrentUser(loggedInUser);
 
@@ -237,7 +237,7 @@ const App: React.FC = () => {
             associatedCustomerId: p.associatedCustomerId,
             avatarInitials: `${(p.firstName || '?').charAt(0)}${(p.lastName || '?').charAt(0)}`.toUpperCase(),
             avatarColor: 'bg-orange-500',
-            created_at: formatDateDE(new Date(p.created_at || Date.now())),
+            created_at: new Date(p.created_at || Date.now()).toLocaleDateString('de-DE'),
           })) || []);
         }
       } else if (loggedInUser.associatedCustomerId) {
@@ -309,10 +309,7 @@ const App: React.FC = () => {
       avatarInitials: initials,
       avatarColor: getAvatarColorForLevel(TrainingLevelEnum.EINSTEIGER),
       firstName, lastName, email, phone: '',
-      // Wichtig: kein JSON.stringify() - "dogs" ist eine jsonb-Spalte, Supabase
-      // wandelt das Array automatisch korrekt um (siehe Erklärung bei
-      // handleUpdateCustomer weiter unten in dieser Datei).
-      dogs: [{
+      dogs: JSON.stringify([{
         id: '1', name: '', chipNumber: '', level: TrainingLevelEnum.EINSTEIGER,
         trainingProgress: [
           { id: 1, name: TrainingLevelEnum.EINSTEIGER, requiredHours: 12, completedHours: 0, status: 'Aktuell' },
@@ -321,7 +318,7 @@ const App: React.FC = () => {
           { id: 4, name: TrainingLevelEnum.MASTERCLASS, requiredHours: 13, completedHours: 0, status: 'Gesperrt' },
           { id: 5, name: TrainingLevelEnum.EXPERT, requiredHours: 100, completedHours: 0, status: 'Gesperrt' },
         ]
-      }],
+      }]),
       balance: 0, totalTransactions: 0,
       createdBy: 'Registrierung',
       qrCodeData: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedTargetUrl}`,
@@ -371,16 +368,9 @@ if (customerInsertError) {
     if (!supabase) return;
   
     const { ...customerToUpdate } = updatedCustomer;
-    // Wichtig: KEIN JSON.stringify(...) mehr auf "dogs" anwenden. Die Spalte
-    // "dogs" in der Datenbank ist vom Typ jsonb - Supabase wandelt ein
-    // normales JS-Array/Objekt bereits automatisch korrekt um. Ein
-    // zusätzliches JSON.stringify() hat den Inhalt bisher DOPPELT als Text
-    // verschachtelt gespeichert (ein Text-String, der selbst wieder Text
-    // enthielt), statt als normale Datenstruktur. Das hat u.a. Datenbank-
-    // Abfragen und die Auswertung der Hunde-Daten erschwert.
     const { error: customerUpdateError } = await supabase.from('customers').update({
       ...customerToUpdate,
-      dogs: customerToUpdate.dogs,
+      dogs: JSON.stringify(customerToUpdate.dogs), // Supabase accepts stringified JSON or JSON object depending on how it's set up; assuming stringified is safe
     }).eq('id', updatedCustomer.id);
   
     if (customerUpdateError) {
@@ -448,88 +438,6 @@ if (customerInsertError) {
         setTransactions(prev => [...prev, completeTransaction]);
     }
   };
-
-  // Bucht eine Transaktion UND aktualisiert den zugehörigen Kunden (Saldo, Trainingsfortschritt, ...)
-  // als eine einzige atomare Datenbankoperation (über die Postgres-Funktion "process_transaction").
-  // So kann es nicht mehr passieren, dass eine Transaktion gespeichert wird, aber der Saldo nicht
-  // (oder umgekehrt) - z.B. weil die Internetverbindung mitten im Vorgang abbricht.
-  // Gibt true bei Erfolg zurück, false bei einem Fehler (der Aufrufer soll dann NICHT den
-  // Bestätigungs-Dialog schließen bzw. den Nutzer informieren, erneut zu versuchen).
-  const handleProcessTransaction = async (
-    updatedCustomer: Customer,
-    newTransaction: Omit<Transaction, 'created_at'>
-  ): Promise<boolean> => {
-    if (!supabase) return false;
-
-    const { error } = await supabase.rpc('process_transaction', {
-      p_customer_id: updatedCustomer.id,
-      p_new_balance: updatedCustomer.balance,
-      p_new_total_transactions: updatedCustomer.totalTransactions,
-      p_dogs: updatedCustomer.dogs,
-      p_transaction_id: newTransaction.id,
-      p_dog_id: newTransaction.dogId ?? null,
-      p_type: newTransaction.type,
-      p_description: newTransaction.description,
-      p_amount: newTransaction.amount,
-      p_date: newTransaction.date,
-      p_employee: newTransaction.employee,
-    });
-
-    if (error) {
-      alert(`Fehler beim Buchen der Transaktion: ${error.message}\n\nEs wurde NICHTS gespeichert. Bitte erneut versuchen.`);
-      return false;
-    }
-
-    // Nur bei Erfolg den lokalen Zustand nachziehen - so bleiben Saldo und
-    // Transaktionshistorie in der App immer synchron mit der Datenbank.
-    setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
-    setTransactions(prev => [...prev, { ...newTransaction, created_at: new Date().toISOString() }]);
-    return true;
-  };
-
-  // Wie handleProcessTransaction, aber für mehrere Buchungen auf einmal -
-  // z.B. wenn bei einem Kunden mit mehreren Hunden für jeden Hund einzeln
-  // ein Trail-Startwert gesetzt wird. Kunden-Update UND alle Buchungen
-  // laufen als eine einzige atomare Datenbankoperation, damit die Trails
-  // pro Hund garantiert korrekt und unabhängig voneinander gezählt werden.
-  const handleProcessTransactionsBatch = async (
-    updatedCustomer: Customer,
-    newTransactions: Omit<Transaction, 'created_at'>[]
-  ): Promise<boolean> => {
-    if (!supabase) return false;
-    if (newTransactions.length === 0) {
-      // Nichts zu buchen, aber der Kunde soll trotzdem aktualisiert werden.
-      return handleUpdateCustomer(updatedCustomer).then(() => true);
-    }
-
-    const { error } = await supabase.rpc('process_transactions_batch', {
-      p_customer_id: updatedCustomer.id,
-      p_new_balance: updatedCustomer.balance,
-      p_new_total_transactions: updatedCustomer.totalTransactions,
-      p_dogs: updatedCustomer.dogs,
-      p_transactions: newTransactions.map(t => ({
-        id: t.id,
-        dogId: t.dogId ?? null,
-        type: t.type,
-        description: t.description,
-        amount: t.amount,
-        date: t.date,
-        employee: t.employee,
-      })),
-    });
-
-    if (error) {
-      alert(`Fehler beim Speichern: ${error.message}\n\nEs wurde NICHTS gespeichert. Bitte erneut versuchen.`);
-      return false;
-    }
-
-    setCustomers(prev => prev.map(c => (c.id === updatedCustomer.id ? updatedCustomer : c)));
-    setTransactions(prev => [
-      ...prev,
-      ...newTransactions.map(t => ({ ...t, created_at: new Date().toISOString() })),
-    ]);
-    return true;
-  };
   
   const handleDeleteTransactionsByIds = async (transactionIds: string[]) => {
     if (!supabase || transactionIds.length === 0) return;
@@ -594,7 +502,7 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="/reports" element={<Reports customers={customers} transactions={transactions} users={users} />} />
                   <Route path="/users" element={<UserManagement users={users} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
@@ -603,12 +511,12 @@ if (customerInsertError) {
                 <>
                   <Route path="/" element={<Dashboard customers={customers} transactions={transactions} currentUser={currentUser} />} />
                   <Route path="/customers" element={<CustomerManagement customers={customers} transactions={transactions} currentUser={currentUser} />} />
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to="/" />} />
                 </>
               ) : currentUser.role === UserRoleEnum.KUNDE && currentUser.associatedCustomerId ? (
                 <>
-                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onProcessTransaction={handleProcessTransaction} onProcessTransactionsBatch={handleProcessTransactionsBatch} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
+                  <Route path="/customers/:id" element={<CustomerDetails customers={customers} transactions={transactions} onUpdateCustomer={handleUpdateCustomer} onAddTransaction={handleAddTransaction} onDeleteTransactionsByIds={handleDeleteTransactionsByIds} currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate replace to={`/customers/${currentUser.associatedCustomerId}`} />} />
                 </>
               ) : (

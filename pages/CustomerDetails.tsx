@@ -32,7 +32,7 @@ import {
 } from '../components/Icons';
 import { REFERENCE_DATE } from '../constants';
 import { Customer, TrainingLevelEnum, TransactionConfirmationData, Transaction, User, UserRoleEnum, NewCustomerData, TrainingSection, Document, Dog } from '../types';
-import { getAvatarColorForLevel, parseDateString, formatDateDE } from '../utils';
+import { getAvatarColorForLevel, parseDateString } from '../utils';
 import { getSupabaseClient } from '../supabaseClient';
 
 // --- NEUES MODAL FÜR STARTWERTE ---
@@ -41,7 +41,6 @@ interface SetInitialValuesModalProps {
   onClose: () => void;
   onSubmit: (dogTrails: Record<string, number>, totalSeminars: number) => void;
   dogs: Dog[];
-  isSubmitting?: boolean;
 }
 
 const EditBalanceModal: React.FC<{
@@ -96,7 +95,7 @@ const EditBalanceModal: React.FC<{
   );
 };
 
-const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs, isSubmitting = false }) => {
+const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, onClose, onSubmit, dogs }) => {
   const [dogTrails, setDogTrails] = useState<Record<string, string>>({});
   const [dogTrailsErrors, setDogTrailsErrors] = useState<Record<string, string>>({});
 
@@ -157,11 +156,11 @@ const SetInitialValuesModal: React.FC<SetInitialValuesModalProps> = ({ isOpen, o
           ))}
         </div>
         <div className="p-4 border-t border-gray-200 mt-6 flex justify-end space-x-3">
-          <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="outline" type="button" onClick={onClose}>
             Abbrechen
           </Button>
-          <Button variant="success" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Wird gespeichert...' : 'Speichern und anpassen'}
+          <Button variant="success" type="submit">
+            Speichern und anpassen
           </Button>
         </div>
       </form>
@@ -298,11 +297,9 @@ const TrailBadges: React.FC<{ totalTrails: number }> = ({ totalTrails }) => {
 interface CustomerDetailsProps {
   customers: Customer[];
   transactions: Transaction[];
-  onUpdateCustomer: (updatedCustomer: Customer) => void | Promise<void>;
-  onAddTransaction: (newTransaction: Omit<Transaction, 'created_at'>) => void | Promise<void>;
-  onProcessTransaction: (updatedCustomer: Customer, newTransaction: Omit<Transaction, 'created_at'>) => Promise<boolean>;
-  onProcessTransactionsBatch: (updatedCustomer: Customer, newTransactions: Omit<Transaction, 'created_at'>[]) => Promise<boolean>;
-  onDeleteTransactionsByIds: (transactionIds: string[]) => void | Promise<void>;
+  onUpdateCustomer: (updatedCustomer: Customer) => void;
+  onAddTransaction: (newTransaction: Omit<Transaction, 'created_at'>) => void;
+  onDeleteTransactionsByIds: (transactionIds: string[]) => void;
   currentUser: User;
 }
 
@@ -311,8 +308,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   transactions,
   onUpdateCustomer,
   onAddTransaction,
-  onProcessTransaction,
-  onProcessTransactionsBatch,
   onDeleteTransactionsByIds,
   currentUser,
 }) => {
@@ -338,7 +333,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
   const [documentToView, setDocumentToView] = useState<{ id: string, name: string, url: string } | null>(null);
   const [transactionToUndo, setTransactionToUndo] = useState<Transaction | null>(null);
-  const [isSubmittingTransaction, setIsSubmittingTransaction] = useState(false);
 
   const handleEditBalanceSubmit = (newBalance: number) => {
     if (!customer) return;
@@ -354,11 +348,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTransactionToUndo(transaction);
   };
 
-  const executeUndoTransaction = async () => {
-    if (isSubmittingTransaction) return;
+  const executeUndoTransaction = () => {
     if (!customer || !transactionToUndo) return;
     const transaction = transactionToUndo;
-    setIsSubmittingTransaction(true);
 
     let updatedBalance = customer.balance;
     let updatedDogs = [...(customer.dogs || [])];
@@ -441,13 +433,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       totalTransactions: Math.max(0, customer.totalTransactions - 1),
     };
 
-    // Erst den Kontostand/Trainingsfortschritt korrigieren, dann die
-    // Transaktion aus der Historie löschen - beides abgewartet, damit nicht
-    // z.B. die Transaktion verschwindet, obwohl der Saldo nicht korrigiert
-    // werden konnte.
-    await onUpdateCustomer(finalUpdatedCustomer);
-    await onDeleteTransactionsByIds([transaction.id]);
-    setIsSubmittingTransaction(false);
+    onUpdateCustomer(finalUpdatedCustomer);
+    onDeleteTransactionsByIds([transaction.id]);
     setTransactionToUndo(null);
   };
 
@@ -640,14 +627,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setShowConfirmationModal(true);
   };
 
-  const handleConfirmTransaction = async () => {
-    // Schützt gegen Doppel-Klicks/Doppel-Buchungen: solange eine Buchung
-    // noch läuft, wird ein weiterer Klick auf "Bestätigen und Buchen"
-    // ignoriert (der Button wird zusätzlich in der UI deaktiviert).
-    if (isSubmittingTransaction) return;
+  const handleConfirmTransaction = () => {
     if (!transactionData || !customer) return;
-
-    setIsSubmittingTransaction(true);
 
     let finalUpdatedCustomer: Customer = { ...customer };
     finalUpdatedCustomer.balance = transactionData.newBalance;
@@ -703,33 +684,21 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       }
     }
 
+    onUpdateCustomer(finalUpdatedCustomer);
+
     const newTransaction: Omit<Transaction, 'created_at'> = {
-      // crypto.randomUUID() statt "trx-<lokale-Array-Länge>-<Timestamp>":
-      // die alte ID basierte auf der Anzahl lokal geladener Transaktionen,
-      // was bei mehreren gleichzeitig aktiven Mitarbeitern zu unpassenden
-      // oder kollidierenden IDs führen konnte.
-      id: `trx-${crypto.randomUUID()}`,
+      id: `trx-${transactions.length + 1}-${Date.now()}`,
       customerId: customer.id,
       dogId: transactionData.dogId,
       type: transactionData.transactionType === 'Aufladung' ? 'recharge' : 'debit',
       description: transactionData.description || (transactionData.transactionType === 'Aufladung' ? 'Aufladung' : 'Unbekannt'),
       amount: transactionData.amount,
-      date: formatDateDE(REFERENCE_DATE),
+      date: REFERENCE_DATE.toLocaleDateString('de-DE'),
       employee: `${currentUser.firstName} ${currentUser.lastName}`,
     };
-
-    // Kontostand-Update UND Transaktionsbuchung laufen jetzt als EINE
-    // atomare Datenbankoperation. Nur wenn das wirklich klappt, schließen
-    // wir den Dialog und übernehmen die Änderung lokal - schlägt es fehl,
-    // bleibt der Dialog offen und nichts wird halb gespeichert.
-    const success = await onProcessTransaction(finalUpdatedCustomer, newTransaction);
-
-    setIsSubmittingTransaction(false);
-
-    if (success) {
-      setShowConfirmationModal(false);
-      setTransactionData(null);
-    }
+    onAddTransaction(newTransaction);
+    setShowConfirmationModal(false);
+    setTransactionData(null);
   };
   
   const handleSelectTransactionType = (type: 'Mantrailing' | 'customRecharge' | 'customDebit' | 'customSeminarDebit', selectedDog?: Dog) => {
@@ -768,14 +737,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleSetInitialValues = async (dogTrails: Record<string, number>, newTotalSeminars: number) => {
-    // Schützt gegen Doppel-Klicks auf "Speichern und anpassen": ohne diese
-    // Sperre konnte ein Nutzer, der (weil sich scheinbar nichts tat) mehrfach
-    // klickte, mehrere identische "Bestandsübernahme"-Transaktionen erzeugen.
-    if (isSubmittingTransaction) return;
+  const handleSetInitialValues = (dogTrails: Record<string, number>, newTotalSeminars: number) => {
     if (!customer) return;
-
-    setIsSubmittingTransaction(true);
   
     const levelsConfig = [
       { name: TrainingLevelEnum.EINSTEIGER, required: 12 },
@@ -786,7 +749,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     ];
 
     let updatedDogs = [...(customer.dogs || [])];
-    const trailTransactionsToInsert: Omit<Transaction, 'created_at'>[] = [];
+    let trailTransactionsToAdd = 0;
 
     // --- TRAIL PROGRESS CALCULATION & TRANSACTIONS PER DOG ---
     Object.entries(dogTrails).forEach(([dogId, newTotalTrails], index) => {
@@ -830,42 +793,29 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       const dogName = updatedDogs[dogIdx].name || 'Hund';
       const descTrail = `Bestandsübernahme ${dogName}: ${newTotalTrails} Trails`;
       const trailTransaction: Omit<Transaction, 'created_at'> = {
-        id: `trx-trail-${crypto.randomUUID()}`,
+        id: `trx-trail-${dogId}-${Date.now()}-${index}`,
         customerId: customer.id,
         dogId: dogId,
         type: 'debit',
         description: descTrail,
         amount: 0,
-        date: formatDateDE(REFERENCE_DATE),
+        date: REFERENCE_DATE.toLocaleDateString('de-DE'),
         employee: `${currentUser.firstName} ${currentUser.lastName}`,
       };
-      trailTransactionsToInsert.push(trailTransaction);
+      onAddTransaction(trailTransaction);
+      trailTransactionsToAdd++;
     });
   
     // --- FINAL CUSTOMER OBJECT UPDATE ---
-    // Hinweis: Die vorherige Version verwendete hier eine Variable "diff",
-    // die nirgends definiert war. Dadurch stürzte diese Funktion bei JEDEM
-    // Aufruf mit einem Laufzeitfehler ab - und zwar erst NACHDEM die
-    // Transaktionen oben schon angelegt worden waren, aber BEVOR der Kunde
-    // aktualisiert und das Fenster geschlossen wurde. Das erklärt die
-    // beobachteten doppelten "Bestandsübernahme"-Buchungen: Der Absturz ließ
-    // das Fenster offen, sodass ein erneuter Klick weitere Duplikate erzeugte.
-    const newTotalTransactions = customer.totalTransactions + trailTransactionsToInsert.length;
+    const newTotalTransactions = customer.totalTransactions + (diff > 0 ? diff : 0) + trailTransactionsToAdd;
   
     const finalUpdatedCustomer: Customer = {
       ...customer,
       dogs: updatedDogs,
       totalTransactions: newTotalTransactions,
     };
-
-    // Kunden-Update UND alle Trail-Buchungen (pro Hund eine) laufen jetzt als
-    // EINE atomare Datenbankoperation - genau wie bei einer normalen
-    // Aufladung/Abbuchung. Damit bleiben die Trails jedes einzelnen Hundes
-    // garantiert korrekt und unabhängig von den anderen Hunden gezählt, auch
-    // wenn mitten im Vorgang z.B. die Internetverbindung abbricht.
-    await onProcessTransactionsBatch(finalUpdatedCustomer, trailTransactionsToInsert);
-
-    setIsSubmittingTransaction(false);
+    onUpdateCustomer(finalUpdatedCustomer);
+  
     setIsSetInitialValuesModalOpen(false);
   };
 
@@ -1029,7 +979,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <h2 className="text-xl font-semibold text-gray-900">Konto</h2>
             <hr className="w-24 h-px mt-2 mb-4 bg-gray-200 border-0" />
             <div className="space-y-2 text-gray-700">
-              <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{formatDateDE(new Date(customer.created_at))}</span></div>
+              <div className="flex justify-between"><span>Erstellt am</span><span className="font-bold">{new Date(customer.created_at).toLocaleDateString('de-DE')}</span></div>
               <div className="flex justify-between"><span>Kunden-ID</span><span className="font-bold">{customer.id}</span></div>
             </div>
             {isCustomerViewing && (
@@ -1137,10 +1087,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       </div>
       <TransactionConfirmationModal
         isOpen={showConfirmationModal}
-        onClose={() => { if (!isSubmittingTransaction) setShowConfirmationModal(false); }}
+        onClose={() => setShowConfirmationModal(false)}
         onConfirm={handleConfirmTransaction}
         data={transactionData}
-        isSubmitting={isSubmittingTransaction}
       />
       <TransactionTypeSelectionModal
         isOpen={showTransactionTypeModal}
@@ -1165,10 +1114,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       />
       <SetInitialValuesModal
         isOpen={isSetInitialValuesModalOpen}
-        onClose={() => { if (!isSubmittingTransaction) setIsSetInitialValuesModalOpen(false); }}
+        onClose={() => setIsSetInitialValuesModalOpen(false)}
         onSubmit={handleSetInitialValues}
         dogs={customer.dogs || []}
-        isSubmitting={isSubmittingTransaction}
       />
       <EditBalanceModal
         isOpen={isEditBalanceModalOpen}
@@ -1205,6 +1153,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hund</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absolvierte Trails</th>
                 </tr>
               </thead>
@@ -1214,6 +1163,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   return (
                     <tr key={dog.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dog.name || 'Unbenannt'} {dog.chipNumber ? <span className="text-xs text-gray-500 font-normal ml-2">Chip: {dog.chipNumber}</span> : null}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dog.level || 'Einsteiger'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           {trails}
@@ -1224,7 +1174,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 })}
                 {(!customer.dogs || customer.dogs.length === 0) && (
                   <tr>
-                    <td colSpan={2} className="px-6 py-4 text-center text-sm text-gray-500">Keine Hunde vorhanden</td>
+                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">Keine Hunde vorhanden</td>
                   </tr>
                 )}
               </tbody>
@@ -1238,7 +1188,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
       <Modal
         isOpen={!!transactionToUndo}
-        onClose={() => { if (!isSubmittingTransaction) setTransactionToUndo(null); }}
+        onClose={() => setTransactionToUndo(null)}
         title="Transaktion löschen"
       >
         <div className="p-4">
@@ -1249,10 +1199,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <strong>Hinweis:</strong> Dies ändert das Guthaben des Kunden und zieht ggf. damit verbundene Trails wieder ab.
           </p>
           <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={() => setTransactionToUndo(null)} disabled={isSubmittingTransaction}>Abbrechen</Button>
-            <Button variant="danger" onClick={executeUndoTransaction} disabled={isSubmittingTransaction}>
-              {isSubmittingTransaction ? 'Wird gelöscht...' : 'Transaktion löschen'}
-            </Button>
+            <Button variant="outline" onClick={() => setTransactionToUndo(null)}>Abbrechen</Button>
+            <Button variant="danger" onClick={executeUndoTransaction}>Transaktion löschen</Button>
           </div>
         </div>
       </Modal>

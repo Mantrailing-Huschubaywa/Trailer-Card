@@ -10,7 +10,6 @@ interface TransactionConfirmationModalProps {
   onClose: () => void;
   onConfirm: () => void;
   data: TransactionConfirmationData | null;
-  isSubmitting?: boolean;
 }
 
 const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> = ({
@@ -18,7 +17,6 @@ const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> 
   onClose,
   onConfirm,
   data,
-  isSubmitting = false,
 }) => {
   if (!data) return null;
 
@@ -88,11 +86,11 @@ const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> 
         </div>
 
         <div className="p-4 border-t border-gray-200 flex justify-end space-x-3">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
-          <Button variant="success" onClick={onConfirm} icon={CheckCircleIcon} disabled={isSubmitting}>
-            {isSubmitting ? 'Wird gebucht...' : 'Bestätigen und Buchen'}
+          <Button variant="success" onClick={onConfirm} icon={CheckCircleIcon}>
+            Bestätigen und Buchen
           </Button>
         </div>
       </div>
