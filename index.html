@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantrailing Card App</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00A1D6">
+    <link rel="apple-touch-icon" href="https://hs-bw.com/wp-content/uploads/2026/02/Trailer-Card-App-icon.png">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Basic scrollbar styling for a cleaner look */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1; /* slate-300 */
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background-color: #f1f5f9; /* slate-100 */
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-router-dom": "https://esm.sh/react-router-dom@7.11.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "jspdf": "https://esm.sh/jspdf@^2.5.1",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@^3.8.2",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.44.4"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="font-sans bg-gray-100 text-gray-800">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <!-- Service worker registration removed to fix cross-origin errors. -->
+</body>
+</html>
